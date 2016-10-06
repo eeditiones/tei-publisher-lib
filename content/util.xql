@@ -122,15 +122,15 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
     let $ext-modules := pmu:parse-config($name, $mode, $config)
     let $module :=
         if (exists($ext-modules)) then
-            map:new(($modulesDefault, map:entry("modules", array { map:keys($modulesDefault?modules), $ext-modules })))
+            map:new(($modulesDefault, map:entry("modules", array { $modulesDefault?modules?*, $ext-modules })))
         else
             $modulesDefault
     return
         if (empty($module)) then
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
-            let $log := console:log("mode: " || $mode || ", output mode is " || string-join(map:keys($module?output), ", "))
-            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), map:keys($module?output))
+            let $log := console:log("mode: " || $mode || ", output mode is " || string-join($module?output?*, ", "))
+            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*)
             let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
             let $style := pmu:extract-styles($odd, $name, $output-root)
             let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
@@ -237,7 +237,7 @@ declare %private function pmu:requires-update($odd as document-node(), $collecti
 
 declare %private function pmu:fix-module-paths($modules as array(*)) {
     array {
-        for $module in map:keys($modules)
+        for $module in $modules?*
         return
             if (not(map:contains($module, "at")) or matches($module?at, "^(/|xmldb:).*")) then
                 $module
