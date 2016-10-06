@@ -354,7 +354,7 @@ declare %private function pmf:get-after($config as map(*), $classes as xs:string
 
 declare %private function pmf:macros($config as map(*)) as map(*) {
     let $newStyles :=
-        for $class in $config?styles?*[not(ends-with(., ":after") or ends-with(., ":before"))]
+        for $class in map:keys($config?styles)[not(ends-with(., ":after") or ends-with(., ":before"))]
         let $code := pmf:define-styles($config, $class, "#1")
         order by $class ascending
         return
@@ -376,7 +376,7 @@ declare %private function pmf:define-styles($config as map(*), $classes as xs:st
     let $text := string-join($content)
     return
         if (exists($styles)) then
-            pmf:set-margins($styles, pmf:style($styles?*, $styles, $text))
+            pmf:set-margins($styles, pmf:style(map:keys($styles), $styles, $text))
         else
             $text
 };

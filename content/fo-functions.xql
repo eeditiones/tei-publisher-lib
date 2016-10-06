@@ -485,7 +485,7 @@ declare function pmf:check-styles($config as map(*), $node as element()?, $class
             $defaultStyles
     return
         if (exists($styles)) then
-            for $style in $styles?*
+            for $style in map:keys($styles)
             return
                 attribute { $style } { $styles($style) }
         else
@@ -495,7 +495,7 @@ declare function pmf:check-styles($config as map(*), $node as element()?, $class
 
 declare %private function pmf:filter-styles($styles as map(*)?) {
     if (exists($styles)) then
-        $styles?*[. = $pmf:CSS_PROPERTIES] ! map:entry(., $styles(.))
+        map:keys($styles)[. = $pmf:CSS_PROPERTIES] ! map:entry(., $styles(.))
     else
         ()
 };

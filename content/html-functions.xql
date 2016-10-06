@@ -249,7 +249,7 @@ declare function pmf:metadata($config as map(*), $node as element(), $class as x
     <head class="{$class}">{
         pmf:apply-children($config, $node, $content),
         if (exists($config?styles)) then
-            $config?styles?* !
+            map:keys($config?styles) !
                 <link rel="StyleSheet" type="text/css" href="{.}"/>
         else
             ()
