@@ -72,7 +72,7 @@ declare function css:generate-css($root as document-node()) {
         for $rend in $model/tei:outputRendition
         let $className :=
             if ($count > 1) then
-                $spec/@ident || count($model/preceding::tei:model[. >> $spec]) + 1
+                $spec/@ident || count($spec//tei:model[. << $model]) + 1
             else
                 $spec/@ident/string()
         let $class :=
