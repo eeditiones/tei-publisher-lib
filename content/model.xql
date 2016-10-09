@@ -369,7 +369,8 @@ declare %private function pm:modelSequence($ident as xs:string, $seq as element(
     $modules as array(*), $output as xs:string+) {
     <sequence>
     {
-        for $model in $seq/*[not(@output)] | $seq/*[@output = $output][1]
+        for $model in $seq/(tei:model|tei:modelSequence|tei:modelGrp)[not(@output)] |
+            $seq/(tei:model|tei:modelSequence|tei:modelGrp)[@output = $output][1]
         return
             <item>
             {
