@@ -295,8 +295,23 @@ declare function pmf:text($config as map(*), $node as element(), $class as xs:st
     string($content)
 };
 
-declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content) {
-    pmf:inline($config, $node, $class, $content)
+declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content, $source) {
+    comment { "cit (" || string-join($class, ", ") || ")"},
+    <fo:block>
+    {
+        pmf:check-styles($config, $node, ($class, "cit"), ()),
+        $config?apply-children($config, $node, $content)
+    }
+    </fo:block>,
+    if ($source) then
+        <fo:block>
+        {
+            pmf:check-styles($config, $node, ($class, "cit-source"), ()),
+            $config?apply-children($config, $node, $source)
+        }
+        </fo:block>
+    else
+        ()
 };
 
 declare function pmf:body($config as map(*), $node as element(), $class as xs:string+, $content) {

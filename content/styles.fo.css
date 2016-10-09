@@ -1,5 +1,5 @@
 @page:left {
-    page-height: 297mm; 
+    page-height: 297mm;
     page-width: 210mm;
     margin-bottom: 10mm;
     margin-top: 10mm;
@@ -7,11 +7,11 @@
     margin-right: 18mm;
 }
 @page:left-body {
-    margin-bottom: 10mm; 
+    margin-bottom: 10mm;
     margin-top: 16mm;
 }
 @page:right {
-    page-height: 297mm; 
+    page-height: 297mm;
     page-width: 210mm;
     margin-bottom: 10mm;
     margin-top: 10mm;
@@ -19,12 +19,12 @@
     margin-right: 36mm;
 }
 @page:right-body {
-    margin-bottom: 10mm; 
+    margin-bottom: 10mm;
     margin-top: 16mm;
 }
 @page:head {
-    margin-bottom: 0.7mm; 
-    text-align-last: justify; 
+    margin-bottom: 0.7mm;
+    text-align-last: justify;
     font-size: 10pt;
 }
 .tei-text {
@@ -93,4 +93,13 @@
 }
 .tei-note-body {
     font-size: 9pt;
+}
+.cit {
+    margin-left: 3em;
+    margin-right: 3em;
+}
+.cit-source {
+    keep-with-previous.within-page: always;
+    text-align: right;
+    margin-right: 3em;
 }

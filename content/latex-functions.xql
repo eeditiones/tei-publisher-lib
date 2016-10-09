@@ -27,6 +27,13 @@ declare variable $pmf:MACROS := "
     \setlength{\parsep}{\parskip}%
   }%
   \item[]}{\end{list}}
+\def\signed #1{{\leavevmode\unskip\nobreak\hfil\penalty50\hskip2em
+  \hbox{}\nobreak\hfil#1%
+  \parfillskip=0pt \finalhyphendemerits=0 \endgraf}}
+\newsavebox\mybox
+\newenvironment{aquote}[1]
+  {\savebox\mybox{#1}\begin{quote}}
+  {\signed{\usebox\mybox}\end{quote}}
 ";
 
 declare variable $pmf:HEADINGS_BOOK := ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"];
@@ -161,8 +168,10 @@ declare function pmf:text($config as map(*), $node as element(), $class as xs:st
     pmf:escapeChars(string-join($content))
 };
 
-declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content as node()*) {
-    pmf:inline($config, $node, $class, $content)
+declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content as node()*, $source) {
+    "\begin{aquote}{" || pmf:get-content($config, $node, $class, $source) || "}&#10;",
+    pmf:get-content($config, $node, $class, $content),
+    "\end{aquote}&#10;&#10;"
 };
 
 declare function pmf:body($config as map(*), $node as element(), $class as xs:string+, $content) {

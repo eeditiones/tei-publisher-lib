@@ -213,12 +213,16 @@ declare function pmf:text($config as map(*), $node as element(), $class as xs:st
     string-join($content)
 };
 
-declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content) {
-    <span class="{$class}">
+declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content, $source) {
+    <blockquote class="{$class}">
     {
-        pmf:inline($config, $node, $class, $content)
+        $config?apply-children($config, $node, $content),
+        if ($source) then
+            <cite>{$config?apply-children($config, $node, $source)}</cite>
+        else
+            ()
     }
-    </span>
+    </blockquote>
 };
 
 declare function pmf:body($config as map(*), $node as element(), $class as xs:string+, $content) {
