@@ -118,7 +118,7 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
 declare function pmu:process-odd($odd as document-node(), $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?) as map(*) {
     let $name := replace(util:document-name($odd), "^([^\.]+)\.[^\.]+$", "$1")
-    let $modulesDefault := $pmu:MODULES?($mode)
+    let $modulesDefault := pmu:parse-config-properties($mode, $name, $config, $pmu:MODULES?($mode))
     let $ext-modules := pmu:parse-config($name, $mode, $config)
     let $module :=
         if (exists($ext-modules)) then
@@ -196,6 +196,16 @@ declare function pmu:extract-styles($odd as document-node(), $name as xs:string,
     return
         $name || ".css"
 };
+
+declare function pmu:parse-config-properties($odd as xs:string, $mode as xs:string, $config as element(modules)?, $defaultConfig as map(*)) {
+    if ($config) then
+        let $props := $config/output[@mode = $mode][not(@odd) or @odd = $odd]/property
+        return
+            map:merge(($defaultConfig, map { "properties": $props }))
+    else
+        $defaultConfig
+};
+
 
 declare %private function pmu:parse-config($odd as xs:string, $mode as xs:string, $config as element(modules)?) {
     if ($config) then
