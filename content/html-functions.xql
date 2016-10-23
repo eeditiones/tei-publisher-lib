@@ -118,7 +118,7 @@ declare function pmf:anchor($config as map(*), $node as element(), $class as xs:
     <span id="{$id}"/>
 };
 
-declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link as item()?) {
+declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
     <a href="{$link}" class="{$class}">{pmf:apply-children($config, $node, $content)}</a>
 };
 
@@ -155,6 +155,7 @@ declare function pmf:graphic($config as map(*), $node as element(), $class as xs
     let $style := if ($height) then $style || "height: " || $height || "; " else $style
     return
         <img src="{$url}" class="{$class}" title="{$title}">
+        { if ($node/@xml:id) then attribute id { $node/@xml:id } else () }
         { if ($style) then attribute style { $style } else () }
         </img>
 };
