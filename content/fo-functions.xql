@@ -221,10 +221,18 @@ declare function pmf:anchor($config as map(*), $node as element(), $class as xs:
 declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
     if (starts-with($link, "#")) then
         <fo:basic-link internal-destination="{substring-after($link, '#')}">
-        {$config?apply-children($config, $node, $content)}
+        {
+            pmf:check-styles($config, $node, $class, ()),
+            $config?apply-children($config, $node, $content)
+        }
         </fo:basic-link>
     else
-        <fo:basic-link external-destination="{$link}">{$config?apply-children($config, $node, $content)}</fo:basic-link>
+        <fo:basic-link external-destination="{$link}">
+        {
+            pmf:check-styles($config, $node, $class, ()),
+            $config?apply-children($config, $node, $content)
+        }
+        </fo:basic-link>
 };
 
 declare function pmf:escapeChars($text as item()) {
