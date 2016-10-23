@@ -349,6 +349,8 @@ declare function pmf:document($config as map(*), $node as element(), $class as x
     let $counter := counter:create($pmf:NOTE_COUNTER_ID)
     let $odd := doc($config?odd)
     let $config := pmf:load-styles(pmf:load-default-styles($config), $odd)
+    let $root := $node/ancestor-or-self::tei:TEI
+    let $language := ($root/@xml:lang, $root/tei:teiHeader/@xml:lang, "en")[1]
     return
      <fo:root xmlns:fo="http://www.w3.org/1999/XSL/Format">
         <fo:layout-master-set>
@@ -400,7 +402,7 @@ declare function pmf:document($config as map(*), $node as element(), $class as x
                     <fo:leader leader-length="40%" rule-thickness="2pt" leader-pattern="rule" color="grey"/>
                 </fo:block>
             </fo:static-content>
-            <fo:flow flow-name="xsl-region-body" hyphenate="true" language="en" xml:lang="en">
+            <fo:flow flow-name="xsl-region-body" hyphenate="true" language="{$language}" xml:lang="{$language}">
             {$config?apply-children($config, $node, $content)}
             {counter:destroy($pmf:NOTE_COUNTER_ID)[2]}
             </fo:flow>
@@ -510,7 +512,7 @@ declare function pmf:check-styles($config as map(*), $node as element()?, $class
         if (exists($styles)) then
             for $style in map:keys($styles)
             return
-                attribute { $style } { $styles($style) }
+                attribute { $style } { translate($styles($style), '"', "'") }
         else
             (),
     pmf:get-before($config, $classes)
@@ -567,7 +569,7 @@ declare function pmf:load-default-styles($config as map(*)) {
     let $systemCss := repo:get-resource("http://existsolutions.com/apps/tei-publisher-lib", "content/styles.fo.css")
     let $systemStyles := pmf:read-css-string($systemCss)
     return
-        map:new(($config, map:entry("default-styles", pmf:merge-styles($systemStyles, $userStyles))))
+        map:new(($config, map:entry("default-styles", pmf:merge-styles($userStyles, $systemStyles))))
 };
 
 declare function pmf:read-css($path) {
