@@ -1,6 +1,6 @@
 # TEI Publisher Libraries
 
-This repository contains the core code libraries of [TEI Publisher](../tei-publisher-app). Generated applications will only need this package to be installed, 
+This repository contains the core code libraries of [TEI Publisher](/tei-publisher/tei-publisher-app). Generated applications will only need this package to be installed, 
 not the TEI Publisher app itself.
 
 ## License
