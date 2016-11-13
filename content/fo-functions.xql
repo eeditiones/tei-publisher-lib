@@ -340,62 +340,14 @@ declare function pmf:document($config as map(*), $node as element(), $class as x
     let $root := $node/ancestor-or-self::tei:TEI
     let $language := ($root/@xml:lang, $root/tei:teiHeader/@xml:lang, "en")[1]
     return
-     <fo:root xmlns:fo="http://www.w3.org/1999/XSL/Format">
-        <fo:layout-master-set>
-            <fo:simple-page-master master-name="page-left">
-                { pmf:check-styles($config, (), "@page:left", ()) }
-                <fo:region-body>
-                { pmf:check-styles($config, (), "@page:left-body", ())}
-                </fo:region-body>
-                <fo:region-before region-name="head-left" extent="10mm"/>
-            </fo:simple-page-master>
-            <fo:simple-page-master master-name="page-right">
-                { pmf:check-styles($config, (), "@page:right", ())}
-                <fo:region-body>
-                { pmf:check-styles($config, (), "@page:right-body", ())}
-                </fo:region-body>
-                <fo:region-before region-name="head-right" extent="10mm"/>
-            </fo:simple-page-master>
-            <fo:page-sequence-master master-name="page-content">
-                <fo:repeatable-page-master-alternatives>
-                    <fo:conditional-page-master-reference
-                        master-reference="page-right" odd-or-even="odd"/>
-                    <fo:conditional-page-master-reference
-                        master-reference="page-left" odd-or-even="even"/>
-                </fo:repeatable-page-master-alternatives>
-            </fo:page-sequence-master>
-        </fo:layout-master-set>
-        <fo:page-sequence master-reference="page-content">
-            <fo:static-content flow-name="head-left">
-                <fo:block>
-                    { pmf:check-styles($config, (), "@page:head", ())}
-                    <fo:page-number/>
-                    <fo:leader/>
-                    <fo:retrieve-marker retrieve-class-name="heading"/>
-                </fo:block>
-            </fo:static-content>
-            <fo:static-content flow-name="head-right">
-                <fo:block>
-                    { pmf:check-styles($config, (), "@page:head", ())}
-                    <fo:retrieve-marker retrieve-class-name="heading"/>
-                    <fo:leader/>
-                    <fo:page-number/>
-                </fo:block>
-            </fo:static-content>
-            <!--fo:static-content flow-name="xsl-footnote-separator">
-                <fo:block margin-top="4mm"/>
-            </fo:static-content-->
-            <fo:static-content flow-name="xsl-footnote-separator">
-                <fo:block text-align-last="justify" margin-top="4mm" space-after="2mm">
-                    <fo:leader leader-length="40%" rule-thickness="2pt" leader-pattern="rule" color="grey"/>
-                </fo:block>
-            </fo:static-content>
-            <fo:flow flow-name="xsl-region-body" hyphenate="true" language="{$language}" xml:lang="{$language}">
-            {$config?apply-children($config, $node, $content)}
-            {counter:destroy($pmf:NOTE_COUNTER_ID)[2]}
-            </fo:flow>
-        </fo:page-sequence>
-    </fo:root>
+        <fo:root xmlns:fo="http://www.w3.org/1999/XSL/Format">
+        {
+            pmf:load-xml($config, "master.fo.xml")
+        }
+        {
+            pmf:load-page-sequence($config, $node, $content, $language)
+        }
+        </fo:root>
 };
 
 declare function pmf:metadata($config as map(*), $node as element(), $class as xs:string+, $content) {
@@ -454,6 +406,37 @@ declare function pmf:alternate($config as map(*), $node as element(), $class as 
 declare function pmf:omit($config as map(*), $node as element(), $class as xs:string+, $content) {
     ()
 };
+
+declare function pmf:load-page-sequence($config as map(*), $node as node(), $content as node()*, $language as xs:string?) {
+    let $xml := pmf:load-xml($config, "page-sequence.fo.xml")
+    return
+        pmf:parse-page-sequence($config, $xml, $node, $content, $language)
+};
+
+declare function pmf:parse-page-sequence($config as map(*), $nodes as node()*, $context as node(), $content as node()*, $language as xs:string?) {
+    for $node in $nodes
+    return
+        typeswitch($node)
+            case document-node() return
+                pmf:parse-page-sequence($config, $node/*, $context, $content, $language)
+            case element(fo:flow) return
+                element { node-name($node) } {
+                    $node/@* except ($node/@language, $node/@xml:lang),
+                    attribute language { $language },
+                    attribute xml:lang { $language },
+                    $config?apply-children($config, $context, $content),
+                    counter:destroy($pmf:NOTE_COUNTER_ID)[2]
+                }
+            case element() return
+                element { node-name($node) } {
+                    $node/@*,
+                    pmf:parse-page-sequence($config, $node/node(), $context, $content, $language)
+                }
+            default return
+                $node
+};
+
+
 
 declare function pmf:get-before($config as map(*), $classes as xs:string*) {
     for $class in $classes
@@ -558,6 +541,19 @@ declare function pmf:load-default-styles($config as map(*)) {
     let $systemStyles := pmf:read-css-string($systemCss)
     return
         map:new(($config, map:entry("default-styles", pmf:merge-styles($userStyles, $systemStyles))))
+};
+
+declare function pmf:load-xml($config as map(*), $file as xs:string) {
+    let $path := $config?collection || "/" || $file
+    let $doc :=
+        if (doc-available($path)) then
+            doc($path)
+        else
+            let $systemDoc := repo:get-resource("http://existsolutions.com/apps/tei-publisher-lib", "content/" || $file)
+            return
+                parse-xml(util:binary-to-string($systemDoc))
+    return
+        $doc
 };
 
 declare function pmf:read-css($path) {
