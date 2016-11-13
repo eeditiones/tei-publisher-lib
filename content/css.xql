@@ -76,7 +76,7 @@ declare function css:generate-css($root as document-node()) {
 
 declare function css:get-rendition($node as node()*, $class as xs:string+) {
     $class,
-    for $rend in tokenize($node/@rendition, "\s+")
+    for $rend in tokenize($node/@rendition, "[\s,]+")
     return
         if (starts-with($rend, "#")) then
             'document_' || substring-after($rend,'#')
