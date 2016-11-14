@@ -89,7 +89,7 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
     let $defaultStyle := $config?default-styles("tei-head" || $level)
     return
         if ($content instance of node() and $content//text()) then (
-            comment { "heading level " || $level || " (" || string-join($class, ", ") || ")"},
+            comment { "heading level " || $level || " (" || string-join(("tei-head" || $level, $class), ", ") || ")"},
             <fo:block>
             {
                 pmf:check-styles($config, $node, $class, $defaultStyle),
@@ -513,7 +513,7 @@ declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?
     else
         map:new((
             map:for-each-entry($map, function($key, $value) {
-                map:entry($key, map:new(($map($key), $defaults($key))))
+                map:entry($key, map:new(($defaults($key), $map($key))))
             }),
             map:for-each-entry($defaults, function($key, $value) {
                 if (map:contains($map, $key)) then
@@ -539,8 +539,9 @@ declare function pmf:load-default-styles($config as map(*)) {
     let $userStyles := pmf:read-css($path)
     let $systemCss := repo:get-resource("http://existsolutions.com/apps/tei-publisher-lib", "content/styles.fo.css")
     let $systemStyles := pmf:read-css-string($systemCss)
+    let $merged := pmf:merge-styles($userStyles, $systemStyles)
     return
-        map:new(($config, map:entry("default-styles", pmf:merge-styles($userStyles, $systemStyles))))
+        map:new(($config, map:entry("default-styles", $merged)))
 };
 
 declare function pmf:load-xml($config as map(*), $file as xs:string) {
