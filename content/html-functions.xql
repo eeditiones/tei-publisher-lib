@@ -239,14 +239,17 @@ declare function pmf:document($config as map(*), $node as element(), $class as x
 };
 
 declare function pmf:metadata($config as map(*), $node as element(), $class as xs:string+, $content) {
-    <head class="{$class}">{
-        pmf:apply-children($config, $node, $content),
-        if (exists($config?styles)) then
-            $config?styles?* !
-                <link rel="StyleSheet" type="text/css" href="{.}"/>
-        else
-            ()
-    }</head>
+    <head class="{$class}">
+        <title>{ pmf:apply-children($config, $node, $node/tei:fileDesc/tei:titleStmt/tei:title//text()) }</title>
+        <meta name="author" content="{ $node/tei:fileDesc/tei:titleStmt/tei:author//text() }"/>
+        {
+            if (exists($config?styles)) then
+                $config?styles?* !
+                    <link rel="StyleSheet" type="text/css" href="{.}"/>
+            else
+                ()
+        }
+    </head>
 };
 
 declare function pmf:title($config as map(*), $node as element(), $class as xs:string+, $content) {
