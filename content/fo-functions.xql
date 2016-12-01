@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -408,7 +408,7 @@ declare function pmf:omit($config as map(*), $node as element(), $class as xs:st
 };
 
 declare function pmf:load-page-sequence($config as map(*), $node as node(), $content as node()*, $language as xs:string?) {
-    let $xml := pmf:load-xml($config, "page-sequence.fo.xml")
+    let $xml := pmf:load-xml($config, "page-sequence.fo.xml")//fo:page-sequence
     return
         pmf:parse-page-sequence($config, $xml, $node, $content, $language)
 };
