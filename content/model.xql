@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -45,7 +45,9 @@ declare variable $pm:NOT_FOUND := xs:QName("pm:not-found");
  :)
 declare function pm:parse($odd as element(), $modules as array(*), $output as xs:string*) as map(*) {
     let $output := if (exists($output)) then $output else "web"
-    let $uri := "http://www.tei-c.org/tei-simple/models/" || util:document-name($odd) || "/" || $output[1]
+    let $oddPath := ($odd/@source, document-uri(root($odd)))[1]
+    let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
+    let $uri := "http://www.tei-c.org/pm/models/" || $name || "/" || $output[1]
     let $root := $odd/ancestor-or-self::tei:TEI
     let $prefixes := in-scope-prefixes($root)[not(. = ("", "xml", "xhtml", "css"))]
     let $namespaces := $prefixes ! namespace-uri-for-prefix(., $root)
@@ -55,7 +57,7 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
             <comment type="xqdoc">
                 Transformation module generated from TEI ODD extensions for processing models.
 
-                ODD: { document-uri(root($odd)) }
+                ODD: { ($odd/@source/string(), document-uri(root($odd)))[1] }
             </comment>
             <module prefix="model" uri="{$uri}">
                 <default-element-namespace>http://www.tei-c.org/ns/1.0</default-element-namespace>

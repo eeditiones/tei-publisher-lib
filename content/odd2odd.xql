@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -52,7 +52,8 @@ declare function odd:compile($inputCol as xs:string, $odd as xs:string) {
 
 declare %private function odd:merge($parent as element(tei:TEI), $child as element(tei:TEI)) {
     document {
-        <TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en">
+        <TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en"
+            source="{document-uri(root($child))}">
             {
                 let $prefixesParent := in-scope-prefixes($parent)[not(. = ("", "xml", "xhtml", "css"))]
                 let $prefixesChild := in-scope-prefixes($child)[not(. = ("", "xml", "xhtml", "css"))]

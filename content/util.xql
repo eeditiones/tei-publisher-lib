@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -88,10 +88,16 @@ declare function pmu:process($odd as document-node(), $xml as node()*, $output-r
 
 declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?, $parameters as map(*)?) {
-    (: let $name := replace($oddPath, "^.*?([^/]+)\.[^/]+$", "$1")
-    let $odd := doc($oddPath) :)
-    let $name := replace(util:document-name($odd), "^(.*)\.[^/]+$", "$1")
-    let $main := $output-root || "/" || $name || "-" || $mode || "-main.xql"
+    let $oddPath := ($odd/*/@source, document-uri(root($odd)))[1]
+    let $oddSource := doc($oddPath)
+    let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
+    let $main :=
+        if (pmu:requires-update($oddSource, $output-root, $name || "-" || $mode || "-main.xql")) then
+            let $config := pmu:process-odd($oddSource, $output-root, $mode, $relPath, $config)
+            return
+                $config?main
+        else
+            $output-root || "/" || $name || "-" || $mode || "-main.xql"
     let $source := util:binary-to-string(util:binary-doc($main))
     return
         util:eval($source, false(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
@@ -100,7 +106,8 @@ declare function pmu:process($odd as document-node(), $xml as node()*, $output-r
 
 declare function pmu:process-odd($odd as document-node(), $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?) as map(*) {
-    let $name := replace(util:document-name($odd), "^([^\.]+)\.[^\.]+$", "$1")
+    let $oddPath := ($odd/*/@source, document-uri(root($odd)))[1]
+    let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $modulesDefault := pmu:parse-config-properties($mode, $name, $config, $pmu:MODULES?($mode))
     let $ext-modules := pmu:parse-config($name, $mode, $config)
     let $module :=
