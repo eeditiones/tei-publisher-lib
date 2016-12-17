@@ -23,23 +23,15 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 import module namespace console="http://exist-db.org/xquery/console" at "java:org.exist.console.xquery.ConsoleModule";
 
-declare function odd:get-compiled($inputCol as xs:string, $odd as xs:string, $outputCol as xs:string) as xs:string {
-    if (doc-available($outputCol || "/" || $odd)) then
-        let $last-modified := xmldb:last-modified($inputCol, $odd)
-        return
-            if ($last-modified > xmldb:last-modified($outputCol, $odd)) then
-                odd:compile($inputCol, $odd, $outputCol)
-            else
-                $outputCol || "/" || $odd
-    else
-        odd:compile($inputCol, $odd, $outputCol)
+declare function odd:get-compiled($inputCol as xs:string, $odd as xs:string) as document-node() {
+    odd:compile($inputCol, $odd)
 };
 
-declare function odd:compile($inputCol as xs:string, $odd as xs:string, $outputCol as xs:string) {
-    console:log("Compiling odd: " || $inputCol || "/" || $odd || " to " || $outputCol),
+declare function odd:compile($inputCol as xs:string, $odd as xs:string) as document-node() {
+    console:log("Compiling odd: " || $inputCol || "/" || $odd),
     let $compiled := odd:compile($inputCol, $odd)
     return
-        xmldb:store($outputCol, $odd, $compiled, "application/xml")
+        $compiled
 };
 
 declare function odd:compile($inputCol as xs:string, $odd as xs:string) {
@@ -49,76 +41,78 @@ declare function odd:compile($inputCol as xs:string, $odd as xs:string) {
             if ($root//tei:schemaSpec[@source]) then
                 let $import := $root//tei:schemaSpec[@source][1]
                 let $name := $import/@source
-                let $parent := odd:compile($inputCol, $name)
+                let $parent := odd:compile($inputCol, $name)/tei:TEI
                 return
                     odd:merge($parent, $root)
             else
-                $root
+                root($root)
         else
             error(xs:QName("odd:not-found"), "ODD not found: " || $inputCol || "/" || $odd)
 };
 
 declare %private function odd:merge($parent as element(tei:TEI), $child as element(tei:TEI)) {
-    <TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en">
-        {
-            let $prefixesParent := in-scope-prefixes($parent)[not(. = ("", "xml", "xhtml", "css"))]
-            let $prefixesChild := in-scope-prefixes($child)[not(. = ("", "xml", "xhtml", "css"))]
-            let $prefixes := distinct-values(($prefixesParent, $prefixesChild))
-            let $namespaces := $prefixes ! (namespace-uri-for-prefix(., $child), namespace-uri-for-prefix(., $parent))[1]
-            return
-                for-each-pair($prefixes, $namespaces, function($prefix, $namespace) {
-                    namespace { $prefix } { $namespace }
-                })
-        }
-        <teiHeader>
-            <fileDesc>
-                <titleStmt>
-                    <title>Merged TEI PM Spec</title>
-                </titleStmt>
-                <publicationStmt>
-                    <p>Automatically generated, do not modify.</p>
-                </publicationStmt>
-                <sourceDesc>
-                    <p>Generated from input ODD: {document-uri(root($child))}</p>
-                </sourceDesc>
-            </fileDesc>
-        </teiHeader>
-        <text>
-            <body>
+    document {
+        <TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en">
             {
-                (: Copy element specs which are not overwritten by child :)
-                for $spec in $parent//elementSpec
-                let $childSpec := $child//elementSpec[@ident = $spec/@ident][@mode = "change"]
+                let $prefixesParent := in-scope-prefixes($parent)[not(. = ("", "xml", "xhtml", "css"))]
+                let $prefixesChild := in-scope-prefixes($child)[not(. = ("", "xml", "xhtml", "css"))]
+                let $prefixes := distinct-values(($prefixesParent, $prefixesChild))
+                let $namespaces := $prefixes ! (namespace-uri-for-prefix(., $child), namespace-uri-for-prefix(., $parent))[1]
                 return
-                    if ($childSpec) then
-                        $childSpec
-                    else if ($spec//model) then
+                    for-each-pair($prefixes, $namespaces, function($prefix, $namespace) {
+                        namespace { $prefix } { $namespace }
+                    })
+            }
+            <teiHeader>
+                <fileDesc>
+                    <titleStmt>
+                        <title>Merged TEI PM Spec</title>
+                    </titleStmt>
+                    <publicationStmt>
+                        <p>Automatically generated, do not modify.</p>
+                    </publicationStmt>
+                    <sourceDesc>
+                        <p>Generated from input ODD: {document-uri(root($child))}</p>
+                    </sourceDesc>
+                </fileDesc>
+            </teiHeader>
+            <text>
+                <body>
+                {
+                    (: Copy element specs which are not overwritten by child :)
+                    for $spec in $parent//elementSpec
+                    let $childSpec := $child//elementSpec[@ident = $spec/@ident][@mode = "change"]
+                    return
+                        if ($childSpec) then
+                            $childSpec
+                        else if ($spec//model) then
+                            $spec
+                        else
+                            ()
+                }
+                {
+                    (: Copy added element specs :)
+                    for $spec in $child//elementSpec[.//model]
+                    (: Skip specs which already exist in parent :)
+                    where empty($parent//elementSpec[@ident = $spec/@ident])
+                    return
                         $spec
-                    else
-                        ()
-            }
-            {
-                (: Copy added element specs :)
-                for $spec in $child//elementSpec[.//model]
-                (: Skip specs which already exist in parent :)
-                where empty($parent//elementSpec[@ident = $spec/@ident])
-                return
-                    $spec
-            }
-            {
-                (: Merge global outputRenditions :)
-                for $rendition in $child//outputRendition[@xml:id][not(ancestor::model)]
-                where exists($parent/id($rendition/@xml:id))
-                return
-                    $rendition,
-                for $parentRendition in $parent//outputRendition[@xml:id][not(ancestor::model)]
-                where empty($child/id($parentRendition/@xml:id))
-                return
-                    $parentRendition
-            }
-            </body>
-        </text>
-    </TEI>
+                }
+                {
+                    (: Merge global outputRenditions :)
+                    for $rendition in $child//outputRendition[@xml:id][not(ancestor::model)]
+                    where exists($parent/id($rendition/@xml:id))
+                    return
+                        $rendition,
+                    for $parentRendition in $parent//outputRendition[@xml:id][not(ancestor::model)]
+                    where empty($child/id($parentRendition/@xml:id))
+                    return
+                        $parentRendition
+                }
+                </body>
+            </text>
+        </TEI>
+    }
 };
 
 (:~ Strip out documentation elements to speed things up :)

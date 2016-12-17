@@ -77,26 +77,21 @@ declare variable $pmu:MODULES := map {
     }
 };
 
-declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-root as xs:string) {
-    pmu:process($oddPath, $xml, $output-root, "web", "", ())
+declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string) {
+    pmu:process($odd, $xml, $output-root, "web", "", ())
 };
 
-declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-root as xs:string,
+declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?) {
-    pmu:process($oddPath, $xml, $output-root, $mode, $relPath, $config, ())
+    pmu:process($odd, $xml, $output-root, $mode, $relPath, $config, ())
 };
 
-declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-root as xs:string,
+declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?, $parameters as map(*)?) {
-    let $name := replace($oddPath, "^.*?([^/]+)\.[^/]+$", "$1")
-    let $odd := doc($oddPath)
-    let $main :=
-        if (pmu:requires-update($odd, $output-root, $name || "-" || $mode || "-main.xql")) then
-            let $config := pmu:process-odd($odd, $output-root, $mode, $relPath, $config)
-            return
-                $config?main
-        else
-            $output-root || "/" || $name || "-" || $mode || "-main.xql"
+    (: let $name := replace($oddPath, "^.*?([^/]+)\.[^/]+$", "$1")
+    let $odd := doc($oddPath) :)
+    let $name := replace(util:document-name($odd), "^(.*)\.[^/]+$", "$1")
+    let $main := $output-root || "/" || $name || "-" || $mode || "-main.xql"
     let $source := util:binary-to-string(util:binary-doc($main))
     return
         util:eval($source, false(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
