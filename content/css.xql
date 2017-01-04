@@ -91,7 +91,7 @@ declare function css:rendition-styles($config as map(*), $node as node()*) as ma
     return
         if ($renditions) then
             map:new(
-                let $doc := ($config?parameters?root, root($node))[1]
+                let $doc := ($config?parameters?root, root($node[1]))[1]
                 for $renditionDef in $renditions
                 for $rendition in tokenize($renditionDef, "\s+")
                 let $id := substring-after($rendition, "#")

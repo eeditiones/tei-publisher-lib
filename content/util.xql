@@ -28,6 +28,7 @@ module namespace pmu="http://www.tei-c.org/tei-simple/xquery/util";
 
 declare namespace output="http://www.w3.org/2010/xslt-xquery-serialization";
 
+import module namespace odd="http://www.tei-c.org/tei-simple/odd2odd";
 import module namespace pm="http://www.tei-c.org/tei-simple/xquery/model";
 import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
 import module namespace console="http://exist-db.org/xquery/console" at "java:org.exist.console.xquery.ConsoleModule";
@@ -77,30 +78,32 @@ declare variable $pmu:MODULES := map {
     }
 };
 
-declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string) {
+declare function pmu:process($odd as xs:string, $xml as node()*, $output-root as xs:string) {
     pmu:process($odd, $xml, $output-root, "web", "", ())
 };
 
-declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string,
+declare function pmu:process($odd as xs:string, $xml as node()*, $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?) {
     pmu:process($odd, $xml, $output-root, $mode, $relPath, $config, ())
 };
 
-declare function pmu:process($odd as document-node(), $xml as node()*, $output-root as xs:string,
+declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?, $parameters as map(*)?) {
-    let $oddPath := ($odd/*/@source, document-uri(root($odd)))[1]
     let $oddSource := doc($oddPath)
+    let $oddFile := replace($oddPath, "^.*?([^/]+)$", "$1")
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
+    let $collection := replace($oddPath, "^(.*?)/[^/]+$", "$1")
+    let $uri := $output-root || "/" || $name || "-" || $mode || "-main.xql"
     let $main :=
         if (pmu:requires-update($oddSource, $output-root, $name || "-" || $mode || "-main.xql")) then
-            let $config := pmu:process-odd($oddSource, $output-root, $mode, $relPath, $config)
+            let $odd := odd:get-compiled($collection, $oddFile)
+            let $config := pmu:process-odd($odd, $output-root, $mode, $relPath, $config)
             return
                 $config?main
         else
-            $output-root || "/" || $name || "-" || $mode || "-main.xql"
-    let $source := util:binary-to-string(util:binary-doc($main))
+            $uri
     return
-        util:eval($source, false(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
+        util:eval(xs:anyURI($uri), true(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
 };
 
 
