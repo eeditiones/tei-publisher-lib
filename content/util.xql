@@ -93,6 +93,7 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
     let $oddFile := replace($oddPath, "^.*?([^/]+)$", "$1")
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $collection := replace($oddPath, "^(.*?)/[^/]+$", "$1")
+    let $uri := $output-root || "/" || $name || "-" || $mode || "-main.xql"
     let $main :=
         if (pmu:requires-update($oddSource, $output-root, $name || "-" || $mode || "-main.xql")) then
             let $odd := odd:get-compiled($collection, $oddFile)
@@ -100,10 +101,9 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
             return
                 $config?main
         else
-            $output-root || "/" || $name || "-" || $mode || "-main.xql"
-    let $source := util:binary-to-string(util:binary-doc($main))
+            $uri
     return
-        util:eval($source, true(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
+        util:eval(xs:anyURI($uri), true(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
 };
 
 
