@@ -76,9 +76,15 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
     let $level := if ($content instance of node()) then max((count($content/ancestor::tei:div), 1)) else 1
     let $headType :=
         if (pmf:get-property($config, "class", "book") = ("book", "report")) then
-            ($pmf:HEADINGS_BOOK?($level), "section")[1]
+            if ($level <= array:size($pmf:HEADINGS_BOOK)) then
+                $pmf:HEADINGS_BOOK?($level)
+            else
+                "section"
         else
-            ($pmf:HEADINGS_OTHER?($level), "section")[1]
+        if ($level <= array:size($pmf:HEADINGS_OTHER)) then
+            $pmf:HEADINGS_OTHER?($level)
+        else
+            "section"
     let $sectionNumbering := pmf:get-property($config, "section-numbers", ())
     let $headType := if ($sectionNumbering) then $headType else ($headType || "*")
     return
