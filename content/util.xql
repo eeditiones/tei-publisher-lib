@@ -178,8 +178,11 @@ declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xquer
         '    "parameters": if (exists($parameters)) then $parameters else map {}&#10;' ||
         '}&#10;' ||
         "return m:transform($options, $xml)"
-    return
+    let $stored :=
         xmldb:store($output-root, $name || "-" || $mode || "-main.xql", $mainCode, "application/xquery")
+    let $chmod := sm:chmod($stored, "rwxrwxr-x")
+    return
+        $stored
 };
 
 declare function pmu:extract-styles($odd as document-node(), $name as xs:string, $output-root as xs:string) {
