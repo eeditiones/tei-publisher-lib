@@ -103,7 +103,7 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
         else
             $uri
     return
-        util:eval(xs:anyURI($uri), true(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
+        util:eval(xs:anyURI($uri), false(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
 };
 
 
