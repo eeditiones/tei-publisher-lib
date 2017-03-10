@@ -7,7 +7,21 @@ module namespace pmf="http://www.tei-c.org/tei-simple/xquery/functions/epub";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
-declare function pmf:break($config as map(*), $node as element(), $class as xs:string+, $content, $type as xs:string, $label as xs:string*) {
+import module namespace html="http://www.tei-c.org/tei-simple/xquery/functions";
+
+declare function pmf:block($config as map(*), $node as element(), $class as xs:string+, $content) {
+    <div class="{$class}">
+    {
+        if ($node/@xml:id) then
+            ()
+        else
+            attribute id { translate(if ($node/@exist:id) then "N" || $node/@exist:id else generate-id($node), ".", "_") },
+        html:apply-children($config, $node, $content)
+    }
+    </div>
+};
+
+declare function pmf:break($config as map(*), $node as element(), $class as xs:string+, $content, $type, $label) {
     switch($type)
         case "page" return
             if ($label) then
@@ -29,7 +43,7 @@ declare function pmf:cells($config as map(*), $node as element(), $class as xs:s
     </tr>
 };
 
-declare function pmf:note($config as map(*), $node as element(), $class as xs:string+, $content, $place as xs:string?, $label as xs:string?) {
+declare function pmf:note($config as map(*), $node as element(), $class as xs:string+, $content, $place, $label) {
     let $id := translate(generate-id($node), ".", "_")
     return
         switch ($place)
