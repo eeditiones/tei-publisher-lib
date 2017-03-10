@@ -207,7 +207,9 @@ declare function pmf:anchor($config as map(*), $node as element(), $class as xs:
 };
 
 declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
-    if (starts-with($link, "#")) then
+    if (empty($link)) then
+        $config?apply-children($config, $node, $content)
+    else if (starts-with($link, "#")) then
         <fo:basic-link internal-destination="{substring-after($link, '#')}">
         {
             pmf:check-styles($config, $node, $class, ()),
@@ -365,7 +367,7 @@ declare function pmf:table($config as map(*), $node as element(), $class as xs:s
         <fo:table-body>
         {
             pmf:check-styles($config, $node, "tei-table-body", (), false()),
-            $config?apply($config, $node/tei:row)
+            $config?apply-children($config, $node, $content)
         }
         </fo:table-body>
     </fo:table>
