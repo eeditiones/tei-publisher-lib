@@ -88,7 +88,24 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
     let $class := $class[not(starts-with(., "tei-head"))]
     let $defaultStyle := $config?default-styles("tei-head" || $level)
     return
-        if ($content instance of node() and $content//text()) then (
+        if ($node/parent::tei:table) then
+            let $cols := sum(
+                for $cell in $node/following-sibling::tei:row[1]/tei:cell
+                return
+                    ($cell/@cols/number(), 1)[1]
+            )
+            return
+                <fo:table-row>
+                    <fo:table-cell number-columns-spanned="{$cols}">
+                        <fo:block>
+                        {
+                            pmf:check-styles($config, $node, $class, $defaultStyle),
+                            $config?apply-children($config, $node, $content)
+                        }
+                        </fo:block>
+                    </fo:table-cell>
+                </fo:table-row>
+        else if ($content instance of node() and $content//text()) then (
             comment { "heading level " || $level || " (" || string-join(("tei-head" || $level, $class), ", ") || ")"},
             <fo:block>
             {
