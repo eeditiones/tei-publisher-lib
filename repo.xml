@@ -8,8 +8,6 @@
     <copyright>true</copyright>
     <type>library</type>
     <target>tei-publisher-lib</target>
-    <prepare>pre-install.xql</prepare>
-    <finish/>
     <permissions user="tei" group="tei" password="simple" mode="rw-rw-r--"/>
 <deployed>2016-09-09T21:09:52.686+02:00</deployed>
 </meta>
