@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -67,20 +67,23 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
         }
 };
 
-declare function pmf:list($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:list($config as map(*), $node as element(), $class as xs:string+, $content, $type) {
     if ($node/tei:label) then
         <dl class="{$class}">
         { pmf:apply-children($config, $node, $content) }
         </dl>
     else
-        switch($node/@type)
-            case "ordered" return
-                <ol class="{$class}">{pmf:apply-children($config, $node, $content)}</ol>
-            default return
-                <ul class="{$class}">{pmf:apply-children($config, $node, $content)}</ul>
+        let $listType := ($type, $node/@type)[1]
+        return
+            switch($listType)
+                case "ordered" return
+                    <ol class="{$class}">{pmf:apply-children($config, $node, $content)}</ol>
+                default return
+                    <ul class="{$class}">{pmf:apply-children($config, $node, $content)}</ul>
 };
 
-declare function pmf:listItem($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:listItem($config as map(*), $node as element(), $class as xs:string+, $content,
+    $n) {
     let $label :=
         if ($node/../tei:label) then
             $node/preceding-sibling::*[1][self::tei:label]
@@ -91,7 +94,10 @@ declare function pmf:listItem($config as map(*), $node as element(), $class as x
             <dt>{pmf:apply-children($config, $node, $label)}</dt>,
             <dd>{pmf:apply-children($config, $node, $content)}</dd>
         ) else
-            <li class="{$class}">{pmf:apply-children($config, $node, $content)}</li>
+            <li class="{$class}">
+            { if ($n) then attribute value { $n } else () }
+            { pmf:apply-children($config, $node, $content) }
+            </li>
 };
 
 declare function pmf:block($config as map(*), $node as element(), $class as xs:string+, $content) {
