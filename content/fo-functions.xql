@@ -224,7 +224,8 @@ declare function pmf:anchor($config as map(*), $node as element(), $class as xs:
 };
 
 declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
-    if (empty($link)) then
+    if (empty($link) or $link = "#") then
+        (: Make sure not to produce an empty destination, which would cause an FO error :)
         $config?apply-children($config, $node, $content)
     else if (starts-with($link, "#")) then
         <fo:basic-link internal-destination="{substring-after($link, '#')}">
