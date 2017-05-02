@@ -87,7 +87,7 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
             "section"
     let $sectionNumbering := pmf:get-property($config, "section-numbers", ())
     let $headType := if ($sectionNumbering) then $headType else ($headType || "*")
-    return
+    return (
         switch ($level)
             case 1 return
                 let $heading := normalize-space(pmf:get-content($config, $node, $class, $content))
@@ -96,7 +96,9 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
                 return
                     "\" || $headType || "{" || $heading || "}\markboth{" || $headingNoFn || "}{" || $headingNoFn || "}&#10;&#10;"
             default return
-                "\" || $headType || "{" || pmf:get-content($config, $node, $class, $content) || "}&#10;&#10;"
+                "\" || $headType || "{" || pmf:get-content($config, $node, $class, $content) || "}&#10;&#10;",
+        pmf:get-label($node/ancestor::tei:div[1])
+    )
 };
 
 declare function pmf:list($config as map(*), $node as element(), $class as xs:string+, $content) {
@@ -145,9 +147,11 @@ declare function pmf:anchor($config as map(*), $node as element(), $class as xs:
 
 declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
     if (starts-with($link, "#")) then
-        ("\hyperlink{", pmf:escapeChars(substring-after($link, "#")), "}{", pmf:get-content($config, $node, $class, $content), "}")
+        ("\hyperref[", pmf:escapeChars(substring-after($link, "#")), "]{", pmf:get-content($config, $node, $class, $content), "}")
+    else if ($content = $link) then
+        ("\url{", pmf:escapeChars($link), "}")
     else
-        ("\hyperlink{", pmf:escapeChars($link), "}{", pmf:get-content($config, $node, $class, $content), "}")
+        ("\href{", pmf:escapeChars($link), "}{", pmf:get-content($config, $node, $class, $content), "}")
 };
 
 declare function pmf:glyph($config as map(*), $node as element(), $class as xs:string+, $content as xs:anyURI?) {
@@ -383,6 +387,14 @@ declare %private function pmf:get-after($config as map(*), $classes as xs:string
     return
         if (exists($after)) then pmf:escapeChars($after?content) else ()
 };
+
+declare function pmf:get-label($node as element()) {
+    if ($node/@xml:id) then
+        "\label{" || $node/@xml:id/string() || "}"
+    else
+        ()
+};
+
 
 declare %private function pmf:macros($config as map(*)) as map(*) {
     let $newStyles :=
