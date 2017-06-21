@@ -237,7 +237,7 @@ declare function pmf:break($config as map(*), $node as element(), $class as xs:s
         case "page" return
             <span class="{$class}">{pmf:apply-children($config, $node, $label)}</span>
         default return
-            <br/>
+            <br class="{$class}"/>
 };
 
 declare function pmf:document($config as map(*), $node as element(), $class as xs:string+, $content) {
