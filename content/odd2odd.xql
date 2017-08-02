@@ -76,6 +76,17 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                         <p>Generated from input ODD: {document-uri(root($child))}</p>
                     </sourceDesc>
                 </fileDesc>
+                <encodingDesc>
+                    <tagsDecl>
+                    { 
+                        for $rendition in $parent/teiHeader/encodingDesc/tagsDecl/rendition
+                        where empty($child/teiHeader/encodingDesc/tagsDecl/rendition[@xml:id = $rendition/@xml:id])
+                        return
+                            $rendition,
+                        $child/teiHeader/encodingDesc/tagsDecl/rendition
+                    }
+                    </tagsDecl>
+                </encodingDesc>
             </teiHeader>
             <text>
                 <body>
