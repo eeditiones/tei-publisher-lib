@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -64,7 +64,7 @@ declare function pmf:init($config as map(*), $node as node()*) {
         map:new(($config, map:entry("rendition-styles", $styles)))
 };
 
-declare function pmf:paragraph($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-content($config, $node, $class, $content),
     if ($node/ancestor::tei:note) then
         ()
@@ -72,7 +72,7 @@ declare function pmf:paragraph($config as map(*), $node as element(), $class as 
         "&#10;&#10;"
 };
 
-declare function pmf:heading($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $level := if ($content instance of node()) then max((count($content/ancestor::tei:div), 1)) else 1
     let $headType :=
         if (pmf:get-property($config, "class", "book") = ("book", "report")) then
@@ -101,7 +101,7 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
     )
 };
 
-declare function pmf:list($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content) {
     if ($node/tei:label) then
         let $max := max($node/tei:label ! string-length(.))
         let $longest := ($node/tei:label[string-length(.) = $max])[1]/string()
@@ -124,7 +124,7 @@ declare function pmf:list($config as map(*), $node as element(), $class as xs:st
             )
 };
 
-declare function pmf:listItem($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content) {
     if ($node/preceding-sibling::tei:label) then
         "\item[" || pmf:get-content($config, $node, $class, $node/preceding-sibling::tei:label[1]) || "]\hfill \\ {" ||
         pmf:get-content($config, $node, $class, $content) || "}&#10;"
@@ -132,20 +132,20 @@ declare function pmf:listItem($config as map(*), $node as element(), $class as x
         "\item {" || pmf:get-content($config, $node, $class, $content) || "&#10;}"
 };
 
-declare function pmf:block($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-content($config, $node, $class, $content),
     "&#10;&#10;"
 };
 
-declare function pmf:section($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:section($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-content($config, $node, $class, $content)
 };
 
-declare function pmf:anchor($config as map(*), $node as element(), $class as xs:string+, $content, $id as item()*) {
+declare function pmf:anchor($config as map(*), $node as node(), $class as xs:string+, $content, $id as item()*) {
     "\label{" || $id || "}"
 };
 
-declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $link) {
     if (starts-with($link, "#")) then
         ("\hyperref[", pmf:escapeChars(substring-after($link, "#")), "]{", pmf:get-content($config, $node, $class, $content), "}")
     else if ($content = $link) then
@@ -154,21 +154,21 @@ declare function pmf:link($config as map(*), $node as element(), $class as xs:st
         ("\href{", pmf:escapeChars($link), "}{", pmf:get-content($config, $node, $class, $content), "}")
 };
 
-declare function pmf:glyph($config as map(*), $node as element(), $class as xs:string+, $content as xs:anyURI?) {
+declare function pmf:glyph($config as map(*), $node as node(), $class as xs:string+, $content as xs:anyURI?) {
     if ($content = "char:EOLhyphen") then
         "&#xAD;"
     else
         ()
 };
 
-declare function pmf:figure($config as map(*), $node as element(), $class as xs:string+, $content, $title) {
+declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content, $title) {
     "\begin{figure}[h]&#10;" ||
     (if ($title) then "\caption{" || $title || "}&#10;" else ()) ||
     pmf:get-content($config, $node, $class, $content) ||
     "\end{figure}&#10;"
 };
 
-declare function pmf:graphic($config as map(*), $node as element(), $class as xs:string+, $content, $url,
+declare function pmf:graphic($config as map(*), $node as node(), $class as xs:string+, $content, $url,
     $width, $height, $scale, $title) {
     let $w := if ($width and not(ends-with($width, "%"))) then "width=" || $width else ()
     let $h := if ($height and not(ends-with($height, "%"))) then "height=" || $height else ()
@@ -187,33 +187,33 @@ declare function pmf:graphic($config as map(*), $node as element(), $class as xs
         $cmd
 };
 
-declare function pmf:inline($config as map(*), $node as element(), $class as xs:string+, $content as item()*) {
+declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content as item()*) {
     pmf:get-content($config, $node, $class, $content)
 };
 
-declare function pmf:text($config as map(*), $node as element(), $class as xs:string+, $content as item()*) {
+declare function pmf:text($config as map(*), $node as node(), $class as xs:string+, $content as item()*) {
     pmf:escapeChars(string-join($content))
 };
 
-declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content as node()*, $source) {
+declare function pmf:cit($config as map(*), $node as node(), $class as xs:string+, $content as node()*, $source) {
     "\begin{aquote}{" || pmf:get-content($config, $node, $class, $source) || "}&#10;",
     pmf:get-content($config, $node, $class, $content),
     "\end{aquote}&#10;&#10;"
 };
 
-declare function pmf:body($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:body($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-content($config, $node, $class, $content)
 };
 
-declare function pmf:omit($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:omit($config as map(*), $node as node(), $class as xs:string+, $content) {
     ()
 };
 
-declare function pmf:index($config as map(*), $node as element(), $class as xs:string+, $content, $type as xs:string) {
+declare function pmf:index($config as map(*), $node as node(), $class as xs:string+, $content, $type as xs:string) {
     ()
 };
 
-declare function pmf:break($config as map(*), $node as element(), $class as xs:string+, $content, $type as xs:string, $label as item()*) {
+declare function pmf:break($config as map(*), $node as node(), $class as xs:string+, $content, $type as xs:string, $label as item()*) {
     switch($type)
         case "page" return
             if ($node/ancestor::tei:head) then
@@ -233,7 +233,7 @@ declare function pmf:get-property($config as map(*), $key as xs:string, $default
 };
 
 
-declare function pmf:document($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:document($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $odd := doc($config?odd)
     let $config := pmf:load-styles($config, $odd)
     let $fontSize := ($config?font-size, "11pt")[1]
@@ -287,7 +287,7 @@ declare function pmf:document($config as map(*), $node as element(), $class as x
     )
 };
 
-declare function pmf:metadata($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $fileDesc := $node//tei:fileDesc
     let $titleStmt := $fileDesc/tei:titleStmt
     let $editionStmt := $fileDesc/tei:editionStmt
@@ -299,11 +299,11 @@ declare function pmf:metadata($config as map(*), $node as element(), $class as x
     )
 };
 
-declare function pmf:title($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:title($config as map(*), $node as node(), $class as xs:string+, $content) {
     "\title{", pmf:get-content($config, $node, $class, $content), "}&#10;"
 };
 
-declare function pmf:table($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $cols := max($node/tei:row ! count(tei:cell))
     return
         "\begin{longtable}[h]{" || string-join((1 to $cols) ! "l") || "}&#10;",
@@ -311,7 +311,7 @@ declare function pmf:table($config as map(*), $node as element(), $class as xs:s
         "\end{longtable}&#10;"
 };
 
-declare function pmf:row($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:row($config as map(*), $node as node(), $class as xs:string+, $content) {
     $config?apply-children($config, $node, $content),
     if ($node/@role = "label") then
         " \\&#10;\hline&#10;"
@@ -319,18 +319,18 @@ declare function pmf:row($config as map(*), $node as element(), $class as xs:str
         " \\&#10;"
 };
 
-declare function pmf:cell($config as map(*), $node as element(), $class as xs:string+, $content, $type) {
+declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
     pmf:get-content($config, $node, $class, $content),
     (if ($node/following-sibling::*) then " &amp; " else ())
 };
 
-declare function pmf:alternate($config as map(*), $node as element(), $class as xs:string+, $content, $default as node()*,
-    $alternate as node()*) {
+declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
+    $alternate) {
     pmf:get-content($config, $node, $class, $default),
     "\footnote{", pmf:get-content($config, $node, $class, $alternate), "}"
 };
 
-declare function pmf:note($config as map(*), $node as element(), $class as xs:string+, $content as item()*, $place as xs:string?, $label) {
+declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content as item()*, $place as xs:string?, $label) {
     if (not($config?skip-footnotes)) then
         switch($place)
             case "margin" return (
@@ -368,7 +368,7 @@ declare function pmf:escapeChars($text as xs:string?) {
     )
 };
 
-declare function pmf:get-content($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:get-content($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-before($config, $class),
     pmf:check-styles($config, $class, $config?apply-children($config, $node, $content)),
     pmf:get-after($config, $class)
@@ -388,7 +388,7 @@ declare %private function pmf:get-after($config as map(*), $classes as xs:string
         if (exists($after)) then pmf:escapeChars($after?content) else ()
 };
 
-declare function pmf:get-label($node as element()) {
+declare function pmf:get-label($node as node()) {
     if ($node/@xml:id) then
         "\label{" || $node/@xml:id/string() || "}"
     else

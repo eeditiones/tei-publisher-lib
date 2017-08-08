@@ -73,7 +73,7 @@ declare function pmf:init($config as map(*), $node as node()*) {
         map:new(($config, map:entry("rendition-styles", $styles)))
 };
 
-declare function pmf:paragraph($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "paragraph" || " (" || string-join($class, ", ") || ")"},
     <fo:block>
     {
@@ -83,7 +83,7 @@ declare function pmf:paragraph($config as map(*), $node as element(), $class as 
     </fo:block>
 };
 
-declare function pmf:heading($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $level := if ($content instance of node()) then max((count($content/ancestor::tei:div), 1)) else 1
     let $class := $class[not(starts-with(., "tei-head"))]
     let $defaultStyle := $config?default-styles("tei-head" || $level)
@@ -128,7 +128,7 @@ declare function pmf:heading($config as map(*), $node as element(), $class as xs
             ()
 };
 
-declare function pmf:list($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "list" || " (" || string-join($class, ", ") || ")"},
     let $label-length :=
         if ($node/tei:label) then
@@ -144,7 +144,7 @@ declare function pmf:list($config as map(*), $node as element(), $class as xs:st
         </fo:list-block>
 };
 
-declare function pmf:listItem($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "listItem" || " (" || string-join($class, ", ") || ")"},
     <fo:list-item>
         { pmf:check-styles($config, $node, $class, ()) }
@@ -171,7 +171,7 @@ declare function pmf:listItem($config as map(*), $node as element(), $class as x
     </fo:list-item>
 };
 
-declare function pmf:block($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "block" || " (" || string-join($class, ", ") || ")"},
     <fo:block>
     {
@@ -181,7 +181,7 @@ declare function pmf:block($config as map(*), $node as element(), $class as xs:s
     </fo:block>
 };
 
-declare function pmf:note($config as map(*), $node as element(), $class as xs:string+, $content as item()*, $place as xs:string?, $label) {
+declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content as item()*, $place as xs:string?, $label) {
 (:    let $number := count($node/preceding::tei:note):)
     let $number := counter:next-value($pmf:NOTE_COUNTER_ID)
     return
@@ -209,7 +209,7 @@ declare function pmf:note($config as map(*), $node as element(), $class as xs:st
         </fo:footnote>
 };
 
-declare function pmf:section($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:section($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "section" || " (" || string-join($class, ", ") || ")"},
     <fo:block>
     {
@@ -219,11 +219,11 @@ declare function pmf:section($config as map(*), $node as element(), $class as xs
     </fo:block>
 };
 
-declare function pmf:anchor($config as map(*), $node as element(), $class as xs:string+, $content, $id as item()*) {
+declare function pmf:anchor($config as map(*), $node as node(), $class as xs:string+, $content, $id as item()*) {
     <fo:inline id="{$id}"/>
 };
 
-declare function pmf:link($config as map(*), $node as element(), $class as xs:string+, $content, $link) {
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $link) {
     if (empty($link) or $link = "#") then
         (: Make sure not to produce an empty destination, which would cause an FO error :)
         $config?apply-children($config, $node, $content)
@@ -251,14 +251,14 @@ declare function pmf:escapeChars($text as item()) {
             $text
 };
 
-declare function pmf:glyph($config as map(*), $node as element(), $class as xs:string+, $content as xs:anyURI?) {
+declare function pmf:glyph($config as map(*), $node as node(), $class as xs:string+, $content as xs:anyURI?) {
     if ($content = "char:EOLhyphen") then
         "&#xAD;"
     else
         ()
 };
 
-declare function pmf:figure($config as map(*), $node as element(), $class as xs:string+, $content, $title) {
+declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content, $title) {
     <fo:block>
     {
         pmf:check-styles($config, $node, $class, ()),
@@ -276,7 +276,7 @@ declare function pmf:figure($config as map(*), $node as element(), $class as xs:
     </fo:block>
 };
 
-declare function pmf:graphic($config as map(*), $node as element(), $class as xs:string+, $content, $url,
+declare function pmf:graphic($config as map(*), $node as node(), $class as xs:string+, $content, $url,
     $width, $height, $scale, $title) {
     let $src :=
         if (matches($url, "^\w+://")) then
@@ -297,7 +297,7 @@ declare function pmf:graphic($config as map(*), $node as element(), $class as xs
         </fo:external-graphic>
 };
 
-declare function pmf:inline($config as map(*), $node as element(), $class as xs:string+, $content as item()*) {
+declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content as item()*) {
     <fo:inline>
     {
         pmf:check-styles($config, $node, $class, ()),
@@ -307,11 +307,11 @@ declare function pmf:inline($config as map(*), $node as element(), $class as xs:
     </fo:inline>
 };
 
-declare function pmf:text($config as map(*), $node as element(), $class as xs:string+, $content as item()*) {
+declare function pmf:text($config as map(*), $node as node(), $class as xs:string+, $content as item()*) {
     string($content)
 };
 
-declare function pmf:cit($config as map(*), $node as element(), $class as xs:string+, $content, $source) {
+declare function pmf:cit($config as map(*), $node as node(), $class as xs:string+, $content, $source) {
     comment { "cit (" || string-join($class, ", ") || ")"},
     <fo:block>
     {
@@ -330,7 +330,7 @@ declare function pmf:cit($config as map(*), $node as element(), $class as xs:str
         ()
 };
 
-declare function pmf:body($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:body($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "body" || " (" || string-join($class, ", ") || ")"},
     <fo:block>
     {
@@ -340,11 +340,11 @@ declare function pmf:body($config as map(*), $node as element(), $class as xs:st
     </fo:block>
 };
 
-declare function pmf:index($config as map(*), $node as element(), $class as xs:string+, $content, $type as xs:string) {
+declare function pmf:index($config as map(*), $node as node(), $class as xs:string+, $content, $type as xs:string) {
     ()
 };
 
-declare function pmf:break($config as map(*), $node as element(), $class as xs:string+, $content, $type as xs:string, $label as item()*) {
+declare function pmf:break($config as map(*), $node as node(), $class as xs:string+, $content, $type as xs:string, $label as item()*) {
     switch($type)
         case "page" return
             ()
@@ -353,7 +353,7 @@ declare function pmf:break($config as map(*), $node as element(), $class as xs:s
     comment { $type || " - " || $label || " (" || string-join($class, ", ") || ")" }
 };
 
-declare function pmf:document($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:document($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $counter := counter:create($pmf:NOTE_COUNTER_ID)
     let $odd := doc($config?odd)
     let $config := pmf:load-styles(pmf:load-default-styles($config), $odd)
@@ -370,15 +370,15 @@ declare function pmf:document($config as map(*), $node as element(), $class as x
         </fo:root>
 };
 
-declare function pmf:metadata($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content) {
     ()
 };
 
-declare function pmf:title($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:title($config as map(*), $node as node(), $class as xs:string+, $content) {
     ()
 };
 
-declare function pmf:table($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "table" || " (" || string-join($class, ", ") || ")"},
     <fo:table>
         { pmf:check-styles($config, $node, $class, ()) }
@@ -391,14 +391,14 @@ declare function pmf:table($config as map(*), $node as element(), $class as xs:s
     </fo:table>
 };
 
-declare function pmf:row($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:row($config as map(*), $node as node(), $class as xs:string+, $content) {
     comment { "row" || " (" || string-join($class, ", ") || ")"},
     <fo:table-row>
     { $config?apply-children($config, $node, $content) }
     </fo:table-row>
 };
 
-declare function pmf:cell($config as map(*), $node as element(), $class as xs:string+, $content, $type) {
+declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
     comment { "cell" || " (" || string-join($class, ", ") || ")"},
     <fo:table-cell>
         {
@@ -418,12 +418,12 @@ declare function pmf:cell($config as map(*), $node as element(), $class as xs:st
     </fo:table-cell>
 };
 
-declare function pmf:alternate($config as map(*), $node as element(), $class as xs:string+, $content, $default as node()*,
-    $alternate as node()*) {
+declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
+    $alternate) {
     $config?apply-children($config, $node, $alternate)
 };
 
-declare function pmf:omit($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:omit($config as map(*), $node as node(), $class as xs:string+, $content) {
     ()
 };
 
@@ -472,11 +472,11 @@ declare function pmf:get-after($config as map(*), $classes as xs:string*) {
         if (exists($after)) then <fo:inline>{$after?content}</fo:inline> else ()
 };
 
-declare function pmf:check-styles($config as map(*), $node as element()?, $classes as xs:string*, $default as map(*)?) {
+declare function pmf:check-styles($config as map(*), $node as node()?, $classes as xs:string*, $default as map(*)?) {
     pmf:check-styles($config, $node, $classes, $default, true())
 };
 
-declare function pmf:check-styles($config as map(*), $node as element()?, $classes as xs:string*, $default as map(*)?, $declareId as xs:boolean?) {
+declare function pmf:check-styles($config as map(*), $node as node()?, $classes as xs:string*, $default as map(*)?, $declareId as xs:boolean?) {
     if ($declareId and $node/@xml:id) then
         attribute id { $node/@xml:id }
     else

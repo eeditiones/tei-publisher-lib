@@ -9,7 +9,7 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 import module namespace html="http://www.tei-c.org/tei-simple/xquery/functions";
 
-declare function pmf:block($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
     <div class="{$class}">
     {
         if ($node/@xml:id) then
@@ -21,11 +21,11 @@ declare function pmf:block($config as map(*), $node as element(), $class as xs:s
     </div>
 };
 
-declare function pmf:break($config as map(*), $node as element(), $class as xs:string+, $content, $type, $label) {
+declare function pmf:break($config as map(*), $node as node(), $class as xs:string+, $content, $type, $label) {
     switch($type)
         case "page" return
             if ($label) then
-                <span class="{$class}" 
+                <span class="{$class}"
                     title="{$config?apply-children($config, $node, $content)}">[p. <span>{$config?apply-children($config, $node, $label)}</span>]</span>
             else
                 <span class="{$class}">[{$config?apply-children($config, $node, $content)}]</span>
@@ -33,7 +33,7 @@ declare function pmf:break($config as map(*), $node as element(), $class as xs:s
             <br/>
 };
 
-declare function pmf:cells($config as map(*), $node as element(), $class as xs:string+, $content) {
+declare function pmf:cells($config as map(*), $node as node(), $class as xs:string+, $content) {
     <tr>
     {
         for $cell in $content/node() | $content/@*
@@ -43,7 +43,7 @@ declare function pmf:cells($config as map(*), $node as element(), $class as xs:s
     </tr>
 };
 
-declare function pmf:note($config as map(*), $node as element(), $class as xs:string+, $content, $place, $label) {
+declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
     let $id := translate(generate-id($node), ".", "_")
     return
         switch ($place)

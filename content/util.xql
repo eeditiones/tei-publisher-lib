@@ -205,7 +205,8 @@ declare function pmu:parse-config-properties($odd as xs:string, $mode as xs:stri
 
 declare %private function pmu:parse-config($odd as xs:string, $mode as xs:string, $config as element(modules)?) {
     if ($config) then
-        for $module in $config/output[@mode = $mode][not(@odd) or @odd = $odd]/module
+        for $module in
+            $config/output[empty(@mode) or @mode = $mode][empty(@odd) or @odd = $odd]/module
         let $map :=
             map {
                 "uri": $module/@uri,
