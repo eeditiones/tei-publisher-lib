@@ -9,5 +9,15 @@
     <type>library</type>
     <target>tei-publisher-lib</target>
     <permissions user="tei" group="tei" password="simple" mode="rw-rw-r--"/>
-<deployed>2016-09-09T21:09:52.686+02:00</deployed>
+    <changelog>
+        <change version="2.1.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Renditions defined in tei header were no longer applied</li>
+                <li>Support definition of default elementSpec for elements and text nodes</li>
+                <li>FO output: make sure to not produce an empty destination for internal and external links</li>
+                <li>Fix internal references for LaTeX output</li>
+                <li>Apply class to line breaks so they can be stiled via CSS</li>
+            </ul>
+        </change>
+    </changelog>
 </meta>
