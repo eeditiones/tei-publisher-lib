@@ -8,7 +8,8 @@
     <copyright>true</copyright>
     <type>library</type>
     <target>tei-publisher-lib</target>
-    <permissions user="tei" group="tei" password="simple" mode="rw-rw-r--"/>
+    <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
+        to update your ODDs.</note>
     <changelog>
         <change version="2.1.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
@@ -20,4 +21,5 @@
             </ul>
         </change>
     </changelog>
+    <permissions user="tei" group="tei" password="simple" mode="rw-rw-r--"/>
 </meta>
