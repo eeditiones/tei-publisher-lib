@@ -91,7 +91,9 @@ let $config :=
 { pm:init-modules($moduleDesc) }
 return (
     { pm:prepare-modules($moduleDesc) }
-    model:apply($config, $input)
+    let $output := model:apply($config, $input)
+    return
+        { pm:finish-modules($moduleDesc) }
 )</body>
                 </function>
                 <function name="model:apply">
@@ -105,92 +107,97 @@ return (
                                 <bang/>
                                 <sequence>
                                     <item>
-                                        <typeswitch op=".">
-                                            {
-                                                for $spec in $odd//tei:elementSpec[not(@ident=('text()', '*'))][.//tei:model]
-                                                let $case := pm:elementSpec($spec, $moduleDesc, $output)
-                                                return
-                                                    if (exists($case)) then (
-                                                        if ($spec/tei:desc) then
-                                                            <comment>{$spec/tei:desc/string()}</comment>
+                                        <let var="node">
+                                            <expr>.</expr>
+                                            <return>
+                                                <typeswitch op=".">
+                                                    {
+                                                        for $spec in $odd//tei:elementSpec[not(@ident=('text()', '*'))][.//tei:model]
+                                                        let $case := pm:elementSpec($spec, $moduleDesc, $output)
+                                                        return
+                                                            if (exists($case)) then (
+                                                                if ($spec/tei:desc) then
+                                                                    <comment>{$spec/tei:desc/string()}</comment>
+                                                                else
+                                                                    (),
+                                                                <case test="element({$spec/@ident})">
+                                                                {$case}
+                                                                </case>
+                                                            ) else
+                                                                (),
+                                                        if ($output = "web") then
+                                                            <case test="element(exist:match)">
+                                                                <function-call name="{$modules?1?prefix}:match">
+                                                                    <param>$config</param>
+                                                                    <param>.</param>
+                                                                    <param>.</param>
+                                                                </function-call>
+                                                            </case>
                                                         else
                                                             (),
-                                                        <case test="element({$spec/@ident})">
-                                                        {$case}
-                                                        </case>
-                                                    ) else
-                                                        (),
-                                                if ($output = "web") then
-                                                    <case test="element(exist:match)">
-                                                        <function-call name="{$modules?1?prefix}:match">
+                                                        let $defaultSpec := $odd//tei:elementSpec[@ident="*"]
+                                                        return
+                                                            if ($defaultSpec) then
+                                                                <case test="element()">
+                                                                {
+                                                                    pm:process-models(
+                                                                        "-element",
+                                                                        pm:get-model-elements($defaultSpec, $output),
+                                                                        $moduleDesc,
+                                                                        $output
+                                                                    )
+                                                                }
+                                                                </case>
+                                                            else
+                                                                <case test="element()">
+                                                                    <if test="namespace-uri(.) = 'http://www.tei-c.org/ns/1.0'">
+                                                                        <then>
+                                                                            <function-call name="$config?apply">
+                                                                                <param>$config</param>
+                                                                                <param>./node()</param>
+                                                                            </function-call>
+                                                                        </then>
+                                                                        <else>.</else>
+                                                                    </if>
+                                                                </case>,
+                                                        let $defaultSpec := $odd//tei:elementSpec[@ident="text()"]
+                                                        return
+                                                            if ($defaultSpec) then
+                                                                <case test="text() | xs:anyAtomicType">
+                                                                {
+                                                                    pm:process-models(
+                                                                        "-text",
+                                                                        pm:get-model-elements($defaultSpec, $output),
+                                                                        $moduleDesc,
+                                                                        $output
+                                                                    )
+                                                                }
+                                                                </case>
+                                                            else
+                                                                <case test="text() | xs:anyAtomicType">
+                                                                {
+                                                                    let $charFn := pm:lookup($moduleDesc, "characters", 1)
+                                                                    return
+                                                                        if (exists($charFn)) then
+                                                                            <function-call name="{$charFn?prefix}:characters">
+                                                                                <param>.</param>
+                                                                            </function-call>
+                                                                        else
+                                                                            <function-call name="{$modules?1?prefix}:escapeChars">
+                                                                                <param>.</param>
+                                                                            </function-call>
+                                                                }
+                                                                </case>
+                                                    }
+                                                    <default>
+                                                        <function-call name="$config?apply">
                                                             <param>$config</param>
-                                                            <param>.</param>
-                                                            <param>.</param>
+                                                            <param>./node()</param>
                                                         </function-call>
-                                                    </case>
-                                                else
-                                                    (),
-                                                let $defaultSpec := $odd//tei:elementSpec[@ident="*"]
-                                                return
-                                                    if ($defaultSpec) then
-                                                        <case test="element()">
-                                                        {
-                                                            pm:process-models(
-                                                                "-element",
-                                                                pm:get-model-elements($defaultSpec, $output),
-                                                                $moduleDesc,
-                                                                $output
-                                                            )
-                                                        }
-                                                        </case>
-                                                    else
-                                                        <case test="element()">
-                                                            <if test="namespace-uri(.) = 'http://www.tei-c.org/ns/1.0'">
-                                                                <then>
-                                                                    <function-call name="$config?apply">
-                                                                        <param>$config</param>
-                                                                        <param>./node()</param>
-                                                                    </function-call>
-                                                                </then>
-                                                                <else>.</else>
-                                                            </if>
-                                                        </case>,
-                                                let $defaultSpec := $odd//tei:elementSpec[@ident="text()"]
-                                                return
-                                                    if ($defaultSpec) then
-                                                        <case test="text() | xs:anyAtomicType">
-                                                        {
-                                                            pm:process-models(
-                                                                "-text",
-                                                                pm:get-model-elements($defaultSpec, $output),
-                                                                $moduleDesc,
-                                                                $output
-                                                            )
-                                                        }
-                                                        </case>
-                                                    else
-                                                        <case test="text() | xs:anyAtomicType">
-                                                        {
-                                                            let $charFn := pm:lookup($moduleDesc, "characters", 1)
-                                                            return
-                                                                if (exists($charFn)) then
-                                                                    <function-call name="{$charFn?prefix}:characters">
-                                                                        <param>.</param>
-                                                                    </function-call>
-                                                                else
-                                                                    <function-call name="{$modules?1?prefix}:escapeChars">
-                                                                        <param>.</param>
-                                                                    </function-call>
-                                                        }
-                                                        </case>
-                                            }
-                                            <default>
-                                                <function-call name="$config?apply">
-                                                    <param>$config</param>
-                                                    <param>./node()</param>
-                                                </function-call>
-                                            </default>
-                                        </typeswitch>
+                                                    </default>
+                                                </typeswitch>
+                                            </return>
+                                        </let>
                                     </item>
                                 </sequence>
                             </return>
@@ -257,6 +264,23 @@ declare %private function pm:prepare-modules($modules as array(*)) {
             $module?prefix || ":prepare($config, $input),&#10;"
     })
 };
+
+declare %private function pm:finish-modules($modules as array(*)) {
+    let $funcs :=
+        array:flatten(
+            array:for-each($modules, function($module) {
+                let $moduleDesc := $module?description
+                for $fn in $moduleDesc/function[@name = $moduleDesc/@prefix || ":finish"][count(argument) = 2]
+                return
+                    $module?prefix || ":finish"
+            })
+        )
+    return
+        fold-left($funcs, "$output", function($zero, $fn) {
+            $fn || '($config, ' || $zero || ')'
+        })
+};
+
 
 declare %private function pm:elementSpec($spec as element(tei:elementSpec), $modules as array(*), $output as xs:string+) {
     pm:process-models(
