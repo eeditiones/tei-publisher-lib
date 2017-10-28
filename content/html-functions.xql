@@ -119,7 +119,7 @@ declare function pmf:link($config as map(*), $node as node(), $class as xs:strin
 declare function pmf:escapeChars($text as item()*) {
     typeswitch($text)
         case attribute() return
-            data($text)
+            text { $text }
         default return
             $text
 };
