@@ -152,7 +152,7 @@ return (
                                                                 </case>
                                                             else
                                                                 <case test="element()">
-                                                                    <if test="namespace-uri(.) = 'http://www.tei-c.org/ns/1.0'">
+                                                                    <if test="namespace-uri(.) = '{$specNS}'">
                                                                         <then>
                                                                             <function-call name="$config?apply">
                                                                                 <param>$config</param>
