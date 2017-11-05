@@ -48,7 +48,7 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $uri := "http://www.tei-c.org/pm/models/" || $name || "/" || $output[1]
     let $root := $odd/ancestor-or-self::tei:TEI
-    let $specNS := $root//tei:schemaSpec/@ns
+    let $specNS := $root//tei:schemaSpec/@ns/string()
     let $prefixes := in-scope-prefixes($root)[not(. = ("", "xml", "xhtml", "css"))]
     let $namespaces := $prefixes ! namespace-uri-for-prefix(., $root)
     let $moduleDesc := pm:load-modules($modules)
