@@ -266,7 +266,7 @@ declare function pmf:figure($config as map(*), $node as node(), $class as xs:str
         if ($title) then
             <fo:block>
             {
-                pmf:check-styles($config, $node, "tei-caption", ()),
+                pmf:check-styles($config, $node, "tei-caption", (), false()),
                 $config?apply-children($config, $node, $title)
             }
             </fo:block>
