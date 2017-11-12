@@ -97,7 +97,7 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
                     "\" || $headType || "{" || $heading || "}\markboth{" || $headingNoFn || "}{" || $headingNoFn || "}&#10;&#10;"
             default return
                 "\" || $headType || "{" || pmf:get-content($config, $node, $class, $content) || "}&#10;&#10;",
-        pmf:get-label($node/ancestor::tei:div[1])
+        pmf:get-label($node/..)
     )
 };
 

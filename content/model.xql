@@ -26,7 +26,6 @@ xquery version "3.1";
 module namespace pm="http://www.tei-c.org/tei-simple/xquery/model";
 
 import module namespace xqgen="http://www.tei-c.org/tei-simple/xquery/xqgen";
-import module namespace console="http://exist-db.org/xquery/console";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
@@ -49,6 +48,11 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $uri := "http://www.tei-c.org/pm/models/" || $name || "/" || $output[1]
     let $root := $odd/ancestor-or-self::tei:TEI
+    let $specNS := 
+        if ($root//tei:schemaSpec/@ns) then 
+            $root//tei:schemaSpec/@ns/string()
+        else
+            "http://www.tei-c.org/ns/1.0"
     let $prefixes := in-scope-prefixes($root)[not(. = ("", "xml", "xhtml", "css"))]
     let $namespaces := $prefixes ! namespace-uri-for-prefix(., $root)
     let $moduleDesc := pm:load-modules($modules)
@@ -60,7 +64,9 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
                 ODD: { $oddPath }
             </comment>
             <module prefix="model" uri="{$uri}">
-                <default-element-namespace>http://www.tei-c.org/ns/1.0</default-element-namespace>
+                <default-element-namespace>
+                { $specNS }
+                </default-element-namespace>
                 <declare-namespace prefix="xhtml" uri="http://www.w3.org/1999/xhtml"/>
                 <!--
                     Should dynamically generate namespace declarations for all namespaces defined
@@ -150,7 +156,7 @@ return (
                                                                 </case>
                                                             else
                                                                 <case test="element()">
-                                                                    <if test="namespace-uri(.) = 'http://www.tei-c.org/ns/1.0'">
+                                                                    <if test="namespace-uri(.) = '{$specNS}'">
                                                                         <then>
                                                                             <function-call name="$config?apply">
                                                                                 <param>$config</param>
