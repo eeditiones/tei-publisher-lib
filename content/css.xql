@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 (:~
  : Utility functions for generating CSS from an ODD or parsing CSS into a map.
- : 
+ :
  : @author Wolfgang Meier
  :)
 module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
@@ -33,7 +33,7 @@ declare function css:parse-css($css as xs:string) {
         let $selectorString := $match/fn:group[@nr = "1"]/string()
         let $selectors := tokenize($selectorString, "\s*,\s*")
         let $styles := map:new(
-            for $match in analyze-string($match/fn:group[@nr = "2"], "\s*(.*?)\s*\:\s*['&quot;]?(.*?)['&quot;]?(?:\;|$)")/fn:match
+            for $match in analyze-string($match/fn:group[@nr = "2"], "\s*(.*?)\s*:\s*['&quot;]?(.*?)['&quot;]?(?:;|$)")/fn:match
             return
                 map:entry($match/fn:group[1]/string(), $match/fn:group[2]/string())
         )
@@ -51,7 +51,7 @@ declare function css:generate-css($root as document-node()) {
         "/* Global styles */&#10;",
         for $rend in $root//tei:rendition[@xml:id]
         return
-            "&#10;.simple_" || $rend/@xml:id || " { " || 
+            "&#10;.simple_" || $rend/@xml:id || " { " ||
             normalize-space($rend/string()) || " }",
         "&#10;&#10;/* Model rendition styles */&#10;",
         for $model in $root//tei:model[tei:outputRendition]
