@@ -118,10 +118,10 @@ declare function pmf:link($config as map(*), $node as node(), $class as xs:strin
 
 declare function pmf:escapeChars($text as item()*) {
     typeswitch($text)
-        case attribute() return
-            text { $text }
-        default return
+        case text() return
             $text
+        default return
+            text { $text }
 };
 
 declare function pmf:glyph($config as map(*), $node as node(), $class as xs:string+, $content) {
