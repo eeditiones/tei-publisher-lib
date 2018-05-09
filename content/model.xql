@@ -48,8 +48,8 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $uri := "http://www.tei-c.org/pm/models/" || $name || "/" || $output[1]
     let $root := $odd/ancestor-or-self::tei:TEI
-    let $specNS := 
-        if ($root//tei:schemaSpec/@ns) then 
+    let $specNS :=
+        if ($root//tei:schemaSpec/@ns) then
             $root//tei:schemaSpec/@ns/string()
         else
             "http://www.tei-c.org/ns/1.0"
@@ -394,7 +394,8 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                         }
                         </param>
                         {
-                            pm:map-parameters($signature, $params, $ident, $modules, $output)
+                            pm:map-parameters($signature, $params, $ident, $modules, $output),
+                            pm:optional-parameters($signature, $params)
                         }
                     </function-call>
                 } catch pm:not-found {
@@ -475,8 +476,34 @@ declare function pm:map-parameters($signature as element(function), $params as e
                     <param>{ ($mapped/@value/string(), $mapped/node(), "()")[1] }</param>
         else if ($arg/@cardinality = ("zero or one", "zero or more")) then
             <param>()</param>
+        else if ($arg/@var = "optional") then
+            ()
         else
             error($pm:NOT_FOUND, "No matching parameter found for argument " || $arg/@var)
+};
+
+(:~
+ : Parameters in the ODD which do not match any declared parameter of the behaviour function are collected into
+ : a map and passed to the behaviour function in a parameter $optional. For this the function must take $optional
+ : as its last parameter. If not, the optional parameters are discarded.
+ :)
+declare %private function pm:optional-parameters($signature as element(function), $params as element(tei:param)+) {
+    let $functionArgs := subsequence($signature/argument, 4)
+    let $lastArg := $functionArgs[last()]
+    return
+        if ($lastArg/@var = "optional") then
+            let $optional :=
+                for $param in $params
+                let $mapped := $functionArgs[@var = $param/@name]
+                return
+                    if ($mapped) then
+                        ()
+                    else
+                        ``["`{$param/@name}`": `{$param/@value}`]``
+            return
+                <param>map {{{string-join($optional, ", ")}}}</param>
+        else
+            ()
 };
 
 declare %private function pm:get-model-elements($context as element(), $output as xs:string+) {
