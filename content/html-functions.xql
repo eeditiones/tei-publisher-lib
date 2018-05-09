@@ -305,6 +305,63 @@ declare function pmf:match($config as map(*), $node as node(), $content) {
     }</mark>
 };
 
+declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content as item()*, $optional as map(*)) {
+    pmf:process-templates($content, $optional, $class)
+};
+
+declare %private function pmf:process-templates($nodes as node()*, $optional as map(*), $class as xs:string*) {
+    for $node in $nodes
+    return
+        typeswitch($node)
+            case element() return
+                element { node-name($node) } {
+                    let $attribs := if (exists($class)) then $node/@* except $node/@class else $node/@*
+                    for $attr in $attribs
+                    return
+                        attribute { node-name($attr) } {
+                            pmf:template-content($attr, $optional)
+                        },
+                    if (exists($class)) then
+                        attribute class { $node/@class, $class }
+                    else
+                        (),
+                    pmf:process-templates($node/node(), $optional, $class)
+                }
+            default return pmf:template-content($node, $optional)
+};
+
+
+declare %private function pmf:template-content($content as xs:string, $optional as map(*)) {
+    if (matches($content, "\$\[[^\]]+\]")) then
+        string-join(
+            let $parsed := analyze-string($content, "\$\[([^\]]+?)(?::([^\]]+))?\]")
+            for $token in $parsed/node()
+            return
+                typeswitch($token)
+                    case element(fn:non-match) return $token/string()
+                    case element(fn:match) return
+                        let $paramName := $token/fn:group[1]
+                        let $default := $token/fn:group[2]
+                        return
+                            array:fold-right([$optional($paramName), $default], (), function($in, $value) {
+                                if (exists($in)) then $in else $value
+                            })
+                    default return $token
+        )
+    else
+        $content
+};
+
+declare %private function pmf:pass-optional-params($optional as map(*)) {
+    map:for-each($optional, function($key, $value) {
+        if ($key != "class") then
+            attribute { $key } { $value }
+        else
+            ()
+    })
+};
+
+
 declare function pmf:apply-children($config as map(*), $node as node(), $content) {
     if ($node/@xml:id) then
         attribute id { $node/@xml:id }
