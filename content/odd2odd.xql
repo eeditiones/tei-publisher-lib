@@ -96,8 +96,14 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                     let $childSpec := $child//elementSpec[@ident = $spec/@ident][@mode = "change"]
                     return
                         if ($childSpec) then
-                            $childSpec
-                        else if ($spec//model) then
+                            if ($childSpec//(model|modelGrp|modelSequence)) then
+                                $childSpec
+                            else
+                                element { node-name($childSpec) } {
+                                    $childSpec/@*,
+                                    $spec//(model|modelGrp|modelSequence)
+                                }
+                        else if ($spec//(model|modelGrp|modelSequence)) then
                             $spec
                         else
                             ()
