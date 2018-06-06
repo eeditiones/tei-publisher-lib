@@ -313,11 +313,15 @@ declare function pmf:match($config as map(*), $node as node(), $content) {
     }</mark>
 };
 
-declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content as item()*, $optional as map(*)) {
-    pmf:process-templates($content, $optional, $class)
+declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content, 
+    $template as item(), $optional as map(*)) {
+    let $optional := map:merge(($optional, map { "content": $content }))
+    return
+        pmf:process-templates($config, $node, $template, $optional, $class)
 };
 
-declare %private function pmf:process-templates($nodes as node()*, $optional as map(*), $class as xs:string*) {
+declare %private function pmf:process-templates($config as map(*), $context as node(), 
+    $nodes as node()*, $optional as map(*), $class as xs:string*) {
     for $node in $nodes
     return
         typeswitch($node)
@@ -327,35 +331,39 @@ declare %private function pmf:process-templates($nodes as node()*, $optional as 
                     for $attr in $attribs
                     return
                         attribute { node-name($attr) } {
-                            pmf:template-content($attr, $optional)
+                            pmf:template-content($config, $context, $attr, $optional)
                         },
                     if (exists($class)) then
                         attribute class { $node/@class, $class }
                     else
                         (),
-                    pmf:process-templates($node/node(), $optional, $class)
+                    pmf:process-templates($config, $context, $node/node(), $optional, $class)
                 }
-            default return pmf:template-content($node, $optional)
+            default return pmf:template-content($config, $context, $node, $optional)
 };
 
 
-declare %private function pmf:template-content($content as xs:string, $optional as map(*)) {
+declare %private function pmf:template-content($config as map(*), $context as node(), $content as xs:string, $optional as map(*)) {
     if (matches($content, "\$\[[^\]]+\]")) then
-        string-join(
-            let $parsed := analyze-string($content, "\$\[([^\]]+?)(?::([^\]]+))?\]")
-            for $token in $parsed/node()
-            return
-                typeswitch($token)
-                    case element(fn:non-match) return $token/string()
-                    case element(fn:match) return
-                        let $paramName := $token/fn:group[1]
-                        let $default := $token/fn:group[2]
-                        return
-                            array:fold-right([$optional($paramName), $default], (), function($in, $value) {
-                                if (exists($in)) then $in else $value
-                            })
-                    default return $token
-        )
+        let $parsed := analyze-string($content, "\$\[([^\]]+?)(?::([^\]]+))?\]")
+        for $token in $parsed/node()
+        return
+            typeswitch($token)
+                case element(fn:non-match) return $token/string()
+                case element(fn:match) return
+                    let $paramName := $token/fn:group[1]
+                    let $default := $token/fn:group[2]
+                    return
+                        if (map:contains($optional, $paramName)) then
+                            let $result := $optional($paramName)
+                            return
+                                if (exists($result)) then
+                                    pmf:apply-children($config, $context, $result)
+                                else
+                                    $default
+                        else
+                            $default
+                default return $token
     else
         $content
 };
