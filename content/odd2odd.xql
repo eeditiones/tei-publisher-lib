@@ -78,7 +78,7 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                 </fileDesc>
                 <encodingDesc>
                     <tagsDecl>
-                    { 
+                    {
                         for $rendition in $parent/teiHeader/encodingDesc/tagsDecl/rendition
                         where empty($child/teiHeader/encodingDesc/tagsDecl/rendition[@xml:id = $rendition/@xml:id])
                         return
@@ -93,18 +93,22 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                 {
                     (: Copy element specs which are not overwritten by child :)
                     for $spec in $parent//elementSpec
+                    group by $ident := $spec/@ident
                     let $childSpec := $child//elementSpec[@ident = $spec/@ident][@mode = "change"]
                     return
                         if ($childSpec) then
-                            if ($childSpec//(model|modelGrp|modelSequence)) then
+                            if ($childSpec/(model|modelGrp|modelSequence)) then
                                 $childSpec
                             else
                                 element { node-name($childSpec) } {
                                     $childSpec/@*,
-                                    $spec//(model|modelGrp|modelSequence)
+                                    $spec/(model|modelGrp|modelSequence)
                                 }
-                        else if ($spec//(model|modelGrp|modelSequence)) then
-                            $spec
+                        else if ($spec/(model|modelGrp|modelSequence)) then
+                            element { node-name($spec[1]) } {
+                                $spec[1]/@*,
+                                $spec/(model|modelGrp|modelSequence)
+                            }
                         else
                             ()
                 }
