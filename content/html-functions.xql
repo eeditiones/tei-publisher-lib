@@ -300,9 +300,9 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 };
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
-    <span class="alternate {$class}">
-        <span>{pmf:apply-children($config, $node, $default)}</span>
-        <span class="altcontent">{pmf:apply-children($config, $node, $alternate)}</span>
+    <span is="pb-alternate" class="alternate {$class}">
+        <span slot="content">{pmf:apply-children($config, $node, $default)}</span>
+        <span class="altcontent" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
     </span>
 };
 
@@ -313,14 +313,14 @@ declare function pmf:match($config as map(*), $node as node(), $content) {
     }</mark>
 };
 
-declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content, 
+declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content,
     $template as item(), $optional as map(*)) {
     let $optional := map:merge(($optional, map { "content": $content }))
     return
         pmf:process-templates($config, $node, $template, $optional, $class)
 };
 
-declare %private function pmf:process-templates($config as map(*), $context as node(), 
+declare %private function pmf:process-templates($config as map(*), $context as node(),
     $nodes as node()*, $optional as map(*), $class as xs:string*) {
     for $node in $nodes
     return
@@ -358,7 +358,7 @@ declare %private function pmf:template-content($config as map(*), $context as no
                             let $result := $optional($paramName)
                             return
                                 if (exists($result)) then
-                                    pmf:apply-children($config, $context, $result)
+                                    $config?apply-children($config, $context, $result)
                                 else
                                     $default
                         else
