@@ -300,10 +300,16 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 };
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
-    <span is="pb-alternate" class="alternate {$class}">
-        <span slot="content">{pmf:apply-children($config, $node, $default)}</span>
-        <span class="altcontent" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
-    </span>
+    if ($config?parameters?webcomponents) then
+        <pb-alternate class="alternate {$class}">
+            <span slot="content">{pmf:apply-children($config, $node, $default)}</span>
+            <span class="altcontent" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
+        </pb-alternate>
+    else
+        <span class="alternate {$class}">
+            <span>{pmf:apply-children($config, $node, $default)}</span>
+            <span class="altcontent">{pmf:apply-children($config, $node, $alternate)}</span>
+        </span>
 };
 
 declare function pmf:match($config as map(*), $node as node(), $content) {
