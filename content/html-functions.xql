@@ -33,12 +33,6 @@ import module namespace counter="http://exist-db.org/xquery/counter" at "java:or
 
 declare variable $pmf:NOTE_COUNTER_ID := "notes-" || util:uuid();
 
-declare variable $pmf:SERIALIZATION_OPTIONS :=
-    <output:serialization-parameters xmlns:output="http://www.w3.org/2010/xslt-xquery-serialization">
-        <output:method>adaptive</output:method>
-        <output:indent>yes</output:indent>
-    </output:serialization-parameters>;
-
 declare function pmf:prepare($config as map(*), $node as node()*) {
     let $styles := css:rendition-styles-html($config, $node)
     let $counter := counter:create($pmf:NOTE_COUNTER_ID)
@@ -308,8 +302,10 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
     if ($config?parameters?webcomponents) then
-        <pb-alternate class="alternate {$class}" content="{serialize(pmf:apply-children($config, $node, $default), $pmf:SERIALIZATION_OPTIONS)}"
-            alternate="{serialize(pmf:apply-children($config, $node, $alternate), $pmf:SERIALIZATION_OPTIONS)}"></pb-alternate>
+        <pb-alternate class="alternate {$class}">
+            <span class="default">{pmf:apply-children($config, $node, $default)}</span>
+            <span class="altcontent">{pmf:apply-children($config, $node, $alternate)}</span>
+        </pb-alternate>
     else
         <span class="alternate {$class}">
             <span>{pmf:apply-children($config, $node, $default)}</span>
