@@ -298,13 +298,12 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
         pmf:apply-children($config, $node, $content)
     }
 };
+
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
     if ($config?parameters?webcomponents) then
-        <pb-alternate class="alternate {$class}">
-            <span slot="content">{pmf:apply-children($config, $node, $default)}</span>
-            <span class="altcontent" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
-        </pb-alternate>
+        <pb-alternate class="alternate {$class}" content="{serialize(pmf:apply-children($config, $node, $default), $pmf:SERIALIZATION_OPTIONS)}"
+            alternate="{serialize(pmf:apply-children($config, $node, $alternate), $pmf:SERIALIZATION_OPTIONS)}"></pb-alternate>
     else
         <span class="alternate {$class}">
             <span>{pmf:apply-children($config, $node, $default)}</span>
