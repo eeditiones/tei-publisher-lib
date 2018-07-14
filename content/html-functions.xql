@@ -33,6 +33,12 @@ import module namespace counter="http://exist-db.org/xquery/counter" at "java:or
 
 declare variable $pmf:NOTE_COUNTER_ID := "notes-" || util:uuid();
 
+declare variable $pmf:SERIALIZATION_OPTIONS :=
+    <output:serialization-parameters xmlns:output="http://www.w3.org/2010/xslt-xquery-serialization">
+        <output:method>adaptive</output:method>
+        <output:indent>yes</output:indent>
+    </output:serialization-parameters>;
+
 declare function pmf:prepare($config as map(*), $node as node()*) {
     let $styles := css:rendition-styles-html($config, $node)
     let $counter := counter:create($pmf:NOTE_COUNTER_ID)
