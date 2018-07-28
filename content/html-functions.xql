@@ -320,6 +320,22 @@ declare function pmf:match($config as map(*), $node as node(), $content) {
     }</mark>
 };
 
+declare function pmf:webcomponent($config as map(*), $node as node()*, $class as xs:string+, $content,
+    $name as xs:string, $optional as map(*)) {
+    element { $name } {
+        attribute class { $class },
+        if ($node/@xml:id) then
+            attribute id { $node/@xml:id }
+        else
+            (),
+        map:for-each($optional, function($key, $value) {
+            attribute { $key } { $value }
+        }),
+        $config?apply-children($config, $node, $content)
+    }
+};
+
+
 declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content,
     $template as item(), $optional as map(*)) {
     let $optional := map:merge(($optional, map { "content": $content }))
@@ -333,7 +349,7 @@ declare %private function pmf:process-templates($config as map(*), $context as n
     return
         typeswitch($node)
             case element() return
-                element { node-name($node) } {
+                element { local-name($node) } {
                     let $attribs := if (exists($class)) then $node/@* except $node/@class else $node/@*
                     for $attr in $attribs
                     return
