@@ -49,6 +49,7 @@ declare function css:generate-css($root as document-node()) {
         "/* Generated stylesheet. Do not edit. */&#10;",
         "/* Generated from " || document-uri($root) || " */&#10;&#10;",
         "/* Global styles */&#10;",
+        css:global-css($root),
         for $rend in $root//tei:rendition[@xml:id]
         return
             "&#10;.simple_" || $rend/@xml:id || " { " ||
@@ -73,6 +74,20 @@ declare function css:generate-css($root as document-node()) {
             normalize-space($rend) || " }"
     ))
 };
+
+declare function css:global-css($root as document-node()) {
+    let $tagsDecl := $root//tei:teiHeader/tei:encodingDesc/tei:tagsDecl
+    return
+        string-join(
+            for $rendition in $tagsDecl/tei:rendition[@selector]
+            return
+                $rendition/@selector || " {&#10;" ||
+                replace($rendition/text(), "^\s*(.*)$", "&#9;$1", "m") ||
+                "}",
+            "&#10;&#10;"
+        )
+};
+
 
 declare function css:get-rendition($node as node()*, $class as xs:string+) {
     $class,
