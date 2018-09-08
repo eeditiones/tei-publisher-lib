@@ -182,7 +182,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                     $node/@exist:id
                 else
                     util:node-id($node)
-            let $id := translate($nodeId, "-", "_")
+            let $id := translate($nodeId, "-.", "__")
             let $nr :=
                 if ($label and ($label castable as xs:integer)) then
                     xs:integer($label)
@@ -190,16 +190,26 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                     counter:next-value($pmf:NOTE_COUNTER_ID)
             let $content := $config?apply-children($config, $node, $content)
             return (
-                <span id="fnref:{$id}">
-                    <a class="note" rel="footnote" href="#fn:{$id}">
-                    { $nr }
+                <span id="fnref_{$id}" style="display:inline-block">
+                    <a class="note" rel="footnote" href="#fn_{$id}">
+                    {
+                        $nr
+                    }
                     </a>
+                    {
+                        if ($config?parameters?webcomponents) then
+                            <paper-tooltip position="top" fit-to-visible-bounds="fit-to-visible-bounds">
+                                {$content}
+                            </paper-tooltip>
+                        else
+                            ()
+                    }
                 </span>,
-                <li class="footnote" id="fn:{$id}" value="{$nr}">
+                <li class="footnote" id="fn_{$id}" value="{$nr}">
                     <span class="fn-content">
                         {$content}
                     </span>
-                    <a class="fn-back" href="#fnref:{$id}">↩</a>
+                    <a class="fn-back" href="#fnref_{$id}">↩</a>
                 </li>
             )
 };
