@@ -314,7 +314,7 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
     if ($config?parameters?webcomponents) then
         <span class="alternate {$class}">
             <span class="default">{pmf:apply-children($config, $node, $default)}</span>
-            <paper-tooltip position="top" fit-to-visible-bounds="fit-to-visible-bounds">{pmf:apply-children($config, $node, $alternate)}</paper-tooltip>
+            <paper-tooltip position="bottom" fit-to-visible-bounds="fit-to-visible-bounds">{pmf:apply-children($config, $node, $alternate)}</paper-tooltip>
         </span>
     else
         <span class="alternate {$class}">
