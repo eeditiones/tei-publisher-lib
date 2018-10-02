@@ -1,5 +1,5 @@
 (:
- :  
+ :
  :  Copyright (C) 2015 Wolfgang Meier
  :
  :  This program is free software: you can redistribute it and/or modify
@@ -62,6 +62,7 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
                     xqgen:generate($node/body/node(), $indent + 1) || $xqgen:LF ||
                     xqgen:indent($indent) || '};' || $xqgen:LFF
                 case element(let) return
+                    xqgen:indent($indent) ||
                     'let $' || $node/@var || ' := ' || $xqgen:LF ||
                     xqgen:generate($node/expr/node(), $indent + 1) || $xqgen:LF ||
                     xqgen:indent($indent) ||
@@ -115,6 +116,13 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
                     string-join(for $item in $node/item return xqgen:generate($item/node(), $indent + 1), "," || $xqgen:LF) ||
                     $xqgen:LF ||
                     xqgen:indent($indent) || ")" || $xqgen:LF
+                case element(map) return
+                    xqgen:indent($indent) || "map {" || $xqgen:LF ||
+                    string-join(for $entry in $node/entry return xqgen:generate($entry, $indent + 1), "," || $xqgen:LF) ||
+                    $xqgen:LF ||
+                    xqgen:indent($indent) || "}" || $xqgen:LF
+                case element(entry) return
+                    xqgen:indent($indent) || $node/@key || ": " || $node/@value
                 case text() return
                     xqgen:indent($node, $indent)
                 default return

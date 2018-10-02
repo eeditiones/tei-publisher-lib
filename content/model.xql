@@ -28,6 +28,8 @@ module namespace pm="http://www.tei-c.org/tei-simple/xquery/model";
 import module namespace xqgen="http://www.tei-c.org/tei-simple/xquery/xqgen";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
+declare namespace pb="http://teipublisher.com/1.0";
+
 
 declare variable $pm:ERR_TOO_MANY_MODELS := xs:QName("pm:too-many-models");
 declare variable $pm:MULTIPLE_FUNCTIONS_FOUND := xs:QName("pm:multiple-functions");
@@ -78,6 +80,7 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
                 }
                 <import-module prefix="css" uri="http://www.tei-c.org/tei-simple/xquery/css"/>
                 { pm:import-modules($modules) }
+                { pm:declare-template-functions($odd) }
                 <comment type="xqdoc">
                     Main entry point for the transformation.
                 </comment>
@@ -379,6 +382,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                         <comment>{$model/tei:desc}</comment>
                     else
                         (),
+                    pm:expand-template($model, $params),
                     <function-call name="{$fn?prefix}:{$task}">
                         <param>$config</param>
                         <param>.</param>
@@ -394,7 +398,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                         }
                         </param>
                         {
-                            pm:map-parameters($signature, $params, $ident, $modules, $output),
+                            pm:map-parameters($signature, $params, $ident, $modules, $output, exists($model/pb:template)),
                             pm:optional-parameters($signature, $params)
                         }
                     </function-call>
@@ -462,8 +466,34 @@ declare %private function pm:lookup($modules as array(*), $task as xs:string, $a
         ()
 };
 
-declare function pm:map-parameters($signature as element(function), $params as element(tei:param)+, $ident as xs:string, $modules as array(*),
-    $output as xs:string+) {
+declare %private function pm:expand-template($model as element(tei:model), $params as element(tei:param)*) {
+    if ($model/pb:template) then (
+        <let var="params">
+            <expr>
+                <map>
+                {
+                    for $param in $params
+                    return
+                        <entry key='"{$param/@name}"' value="{$param/@value}"/>
+                }
+                </map>
+            </expr>
+        </let>,
+        <let var="content">
+            <expr>
+                <function-call name="model:template{count($model/preceding::pb:template) + 1}">
+                    <param>$params</param>
+                </function-call>
+            </expr>
+            <return/>
+        </let>
+    ) else
+        ()
+};
+
+
+declare function pm:map-parameters($signature as element(function), $params as element(tei:param)+,  $ident as xs:string, $modules as array(*),
+    $output as xs:string+, $hasTemplate as xs:boolean?) {
     for $arg in subsequence($signature/argument, 4)
     let $mapped := $params[@name = $arg/@var]
     return
@@ -472,6 +502,8 @@ declare function pm:map-parameters($signature as element(function), $params as e
             return
                 if ($nested) then
                     <param>{ pm:process-models($ident, $nested, $modules, $output) }</param>
+                else if ($hasTemplate and $arg/@var = 'content') then
+                    <param>$content</param>
                 else
                     <param>{ ($mapped/@value/string(), $mapped/node(), "()")[1] }</param>
         else if ($arg/@cardinality = ("zero or one", "zero or more")) then
@@ -512,4 +544,39 @@ declare %private function pm:get-model-elements($context as element(), $output a
         tei:modelSequence[not(@output)]|tei:modelSequence[@output = $output] |
         tei:modelGrp[not(@output)]|tei:modelGrp[@output = $output]
     )
+};
+
+declare %private function pm:declare-template-functions($odd as element()) {
+    for $tmpl at $count in $odd//pb:template
+    return
+        <function name="model:template{$count}">
+            <param>$params as map(*)</param>
+            <body>{pm:template-body($tmpl)}</body>
+        </function>
+};
+
+declare %private function pm:template-body($template as element(pb:template)) {
+    let $children := $template/*
+    return
+        if ($children) then
+            if (count($children) > 1) then
+                '"Error: pb:template requires a single child element!"'
+            else
+                pm:template-body-element($children)
+        else
+            pm:template-body-string($template)
+};
+
+declare %private function pm:template-body-element($root as element()) {
+    let $text := serialize($root, map { "indent": false() })
+    let $code := replace($text, "\[\[(.*?)\]\]", "{\$params?$1}")
+    return
+        if (namespace-uri-from-QName(node-name($root)) = "") then
+            '<t xmlns="">' || $code || '</t>/*'
+        else
+            $code
+};
+
+declare %private function pm:template-body-string($template as element(pb:template)) {
+    "``[" || replace($template/string(), "\[\[(.*?)\]\]", "`{\$params?$1}`") || "]``"
 };
