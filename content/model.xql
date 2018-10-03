@@ -365,7 +365,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
         else
             "."
     let $params := $model/tei:param
-    let $params := if (empty($params[@name="content"])) then ($params, <tei:param name="content">{$content}</tei:param>) else $params
+    let $params := if (empty($params[@name="content"])) then ($params, <tei:param name="content" value="{$content}"/>) else $params
     let $fn := pm:lookup($modules, $task, count($params) + 3)
     return
         if (exists($fn)) then (
@@ -384,7 +384,12 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                         (),
                     pm:expand-template($model, $params),
                     <function-call name="{$fn?prefix}:{$task}">
-                        <param>$config</param>
+                        {
+                            if ($model/pb:template) then
+                                <param>map:merge(($config, map:entry("template", true())))</param>
+                            else
+                                <param>$config</param>
+                        }
                         <param>.</param>
                         <param>
                         {
@@ -482,6 +487,8 @@ declare %private function pm:expand-template($model as element(tei:model), $para
         <let var="content">
             <expr>
                 <function-call name="model:template{count($model/preceding::pb:template) + 1}">
+                    <param>$config</param>
+                    <param>.</param>
                     <param>$params</param>
                 </function-call>
             </expr>
@@ -550,6 +557,8 @@ declare %private function pm:declare-template-functions($odd as element()) {
     for $tmpl at $count in $odd//pb:template
     return
         <function name="model:template{$count}">
+            <param>$config as map(*)</param>
+            <param>$node as node()*</param>
             <param>$params as map(*)</param>
             <body>{pm:template-body($tmpl)}</body>
         </function>
@@ -569,7 +578,7 @@ declare %private function pm:template-body($template as element(pb:template)) {
 
 declare %private function pm:template-body-element($root as element()) {
     let $text := serialize($root, map { "indent": false() })
-    let $code := replace($text, "\[\[(.*?)\]\]", "{\$params?$1}")
+    let $code := replace($text, "\[\[(.*?)\]\]", "{\$config?apply-children(\$config, \$node, \$params?$1)}")
     return
         if (namespace-uri-from-QName(node-name($root)) = "") then
             '<t xmlns="">' || $code || '</t>/*'
@@ -578,5 +587,5 @@ declare %private function pm:template-body-element($root as element()) {
 };
 
 declare %private function pm:template-body-string($template as element(pb:template)) {
-    "``[" || replace($template/string(), "\[\[(.*?)\]\]", "`{\$params?$1}`") || "]``"
+    "``[" || replace($template/string(), "\[\[(.*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, \$params?$1))}`") || "]``"
 };

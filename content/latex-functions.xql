@@ -30,7 +30,6 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 declare namespace output="http://www.w3.org/2010/xslt-xquery-serialization";
 
 import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
-import module namespace console="http://exist-db.org/xquery/console" at "java:org.exist.console.xquery.ConsoleModule";
 
 declare variable $pmf:MACROS := "
 % set left and right margin
@@ -58,6 +57,8 @@ declare variable $pmf:HEADINGS_BOOK := ["chapter", "section", "subsection", "sub
 declare variable $pmf:HEADINGS_OTHER := ["section", "subsection", "subsubsection", "paragraph", "subparagraph"];
 
 declare function pmf:init($config as map(*), $node as node()*) {
+    let $odd := doc($config?odd)
+    let $config := pmf:load-styles($config, $odd)
     let $renditionStyles := string-join(css:rendition-styles-html($config, $node))
     let $styles := if ($renditionStyles) then css:parse-css($renditionStyles) else map {}
     return
@@ -234,8 +235,6 @@ declare function pmf:get-property($config as map(*), $key as xs:string, $default
 
 
 declare function pmf:document($config as map(*), $node as node(), $class as xs:string+, $content) {
-    let $odd := doc($config?odd)
-    let $config := pmf:load-styles($config, $odd)
     let $fontSize := ($config?font-size, "11pt")[1]
     return (
         "\documentclass[" || $fontSize || "]{" || pmf:get-property($config, "class", "book") || "}&#10;",
@@ -370,7 +369,13 @@ declare function pmf:escapeChars($text as xs:string?) {
 
 declare function pmf:get-content($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-before($config, $class),
-    pmf:check-styles($config, $class, $config?apply-children($config, $node, $content)),
+    let $processed :=
+        if ($config?template) then
+            $content
+        else
+            $config?apply-children($config, $node, $content)
+    return
+        pmf:check-styles($config, $class, $processed),
     pmf:get-after($config, $class)
 };
 
@@ -462,16 +467,19 @@ declare %private function pmf:roman-numeral($n as xs:int) {
 };
 
 declare %private function pmf:check-styles($config as map(*), $classes as xs:string+, $content as item()*) {
-    let $text := string-join($content)
-    return
-        fold-left(reverse($classes), $text, function($zero, $class) {
-            let $style := ($config?styles($class))[1]
-            return
-                if (exists($style)) then
-                    "\" || pmf:macroName($class) || "{" || $zero || "}"
-                else
-                    $zero
-        })
+    if (exists($config?styles)) then
+        let $text := string-join($content)
+        return
+            fold-left(reverse($classes), $text, function($zero, $class) {
+                let $style := ($config?styles($class))[1]
+                return
+                    if (exists($style)) then
+                        "\" || pmf:macroName($class) || "{" || $zero || "}"
+                    else
+                        $zero
+            })
+    else
+        $content
 };
 
 declare %private function pmf:set-margins($styles as map(*), $text) {
