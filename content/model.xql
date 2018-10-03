@@ -578,7 +578,7 @@ declare %private function pm:template-body($template as element(pb:template)) {
 
 declare %private function pm:template-body-element($root as element()) {
     let $text := serialize($root, map { "indent": false() })
-    let $code := replace($text, "\[\[(.*?)\]\]", "{\$config?apply-children(\$config, \$node, \$params?$1)}")
+    let $code := replace($text, "\[\[([^\[\]]*?)\]\]", "{\$config?apply-children(\$config, \$node, \$params?$1)}")
     return
         if (namespace-uri-from-QName(node-name($root)) = "") then
             '<t xmlns="">' || $code || '</t>/*'
@@ -587,5 +587,5 @@ declare %private function pm:template-body-element($root as element()) {
 };
 
 declare %private function pm:template-body-string($template as element(pb:template)) {
-    "``[" || replace($template/string(), "\[\[(.*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, \$params?$1))}`") || "]``"
+    "``[" || replace($template/string(), "\[\[([^\[\]]*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, \$params?$1))}`") || "]``"
 };
