@@ -80,7 +80,7 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
                 }
                 <import-module prefix="css" uri="http://www.tei-c.org/tei-simple/xquery/css"/>
                 { pm:import-modules($modules) }
-                { pm:declare-template-functions($odd) }
+                { pm:declare-template-functions($odd, $output) }
                 <comment type="xqdoc">
                     Main entry point for the transformation.
                 </comment>
@@ -500,7 +500,6 @@ declare %private function pm:expand-template($model as element(tei:model), $para
         ()
 };
 
-
 declare function pm:map-parameters($signature as element(function), $params as element(tei:param)+,  $ident as xs:string, $modules as array(*),
     $output as xs:string+, $hasTemplate as xs:boolean?) {
     for $arg in subsequence($signature/argument, 4)
@@ -555,8 +554,8 @@ declare %private function pm:get-model-elements($context as element(), $output a
     )
 };
 
-declare %private function pm:declare-template-functions($odd as element()) {
-    for $tmpl at $count in $odd//pb:template
+declare %private function pm:declare-template-functions($odd as element(), $output as xs:string*) {
+    for $tmpl at $count in ($odd//tei:model[not(@output)]/pb:template | $odd//tei:model[@output=$output]/pb:template)
     return
         <function name="model:template{$count}">
             <param>$config as map(*)</param>
