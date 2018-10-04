@@ -302,7 +302,9 @@ declare %private function pm:elementSpec($spec as element(tei:elementSpec), $mod
 
 declare %private function pm:process-models($ident as xs:string, $models as element()+, $modules as array(*),
     $output as xs:string+) {
-    if ($models[@predicate]) then
+    if ($models[1][not(@predicate)]) then
+        pm:model-or-sequence($ident, $models[1], $modules, $output)
+    else if ($models[@predicate]) then
         fold-right($models[@predicate], (), function($cond, $zero) {
             <if test="{$cond/@predicate}">
                 <then>{pm:model-or-sequence($ident, $cond, $modules, $output)}</then>
