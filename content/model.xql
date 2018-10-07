@@ -80,6 +80,7 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
                 }
                 <import-module prefix="css" uri="http://www.tei-c.org/tei-simple/xquery/css"/>
                 { pm:import-modules($modules) }
+                { pm:declare-behaviour-functions($odd, $output) }
                 { pm:declare-template-functions($odd, $output) }
                 <comment type="xqdoc">
                     Main entry point for the transformation.
@@ -292,12 +293,17 @@ declare %private function pm:finish-modules($modules as array(*)) {
 
 
 declare %private function pm:elementSpec($spec as element(tei:elementSpec), $modules as array(*), $output as xs:string+) {
-    pm:process-models(
-        $spec/@ident,
-        pm:get-model-elements($spec, $output),
-        $modules,
-        $output
-    )
+    let $models := pm:get-model-elements($spec, $output)
+    return
+        if ($models) then
+            pm:process-models(
+                $spec/@ident,
+                $models,
+                $modules,
+                $output
+            )
+        else
+            ()
 };
 
 declare %private function pm:process-models($ident as xs:string, $models as element()+, $modules as array(*),
@@ -368,7 +374,16 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
             "."
     let $params := $model/tei:param
     let $params := if (empty($params[@name="content"])) then ($params, <tei:param name="content" value="{$content}"/>) else $params
-    let $fn := pm:lookup($modules, $task, count($params) + 3)
+    let $behave := root($model)//pb:behaviour[@ident=$task][not(@output)] |
+        root($model)//pb:behaviour[@ident=$task][@output = $output]
+    let $fn :=
+        if ($behave) then
+            map {
+                "function": pm:behaviour-function-meta($behave),
+                "prefix": "model"
+            }
+        else
+            pm:lookup($modules, $task, count($params) + 3)
     return
         if (exists($fn)) then (
             if (count($fn?function) > 1) then
@@ -488,7 +503,7 @@ declare %private function pm:expand-template($model as element(tei:model), $para
         </let>,
         <let var="content">
             <expr>
-                <function-call name="model:template{count($model/preceding::pb:template) + 1}">
+                <function-call name="model:template{count($model/preceding::pb:template[parent::tei:model]) + 1}">
                     <param>$config</param>
                     <param>.</param>
                     <param>$params</param>
@@ -498,6 +513,29 @@ declare %private function pm:expand-template($model as element(tei:model), $para
         </let>
     ) else
         ()
+};
+
+(:~
+ : Construct function signature for a pb:behaviour declared in the ODD.
+ : Used to create the function call.
+ :)
+declare %private function pm:behaviour-function-meta($behave as element(pb:behaviour)) {
+    <function name="{$behave}">
+        <argument var="config" cardinality="exactly one"/>
+        <argument var="node" cardinality="zero or more"/>
+        <argument var="class" cardinality="one or more"/>
+        {
+            if ($behave/pb:param[@name="content"]) then
+                ()
+            else
+                <argument var="content" cardinality="one or more"/>
+        }
+        {
+            for $param in $behave/pb:param[not(@value)]
+            return
+                <argument var="{$param/@name}" cardinality="zero or more"/>
+        }
+    </function>
 };
 
 declare function pm:map-parameters($signature as element(function), $params as element(tei:param)+,  $ident as xs:string, $modules as array(*),
@@ -554,39 +592,81 @@ declare %private function pm:get-model-elements($context as element(), $output a
     )
 };
 
+declare %private function pm:declare-behaviour-functions($odd as element(), $output as xs:string*) {
+    for $behave in root($odd)//pb:behaviour[not(@output)] | root($odd)//pb:behaviour[@output = $output]
+    return (
+        if ($behave/tei:desc) then
+            <comment>{$behave/tei:desc/string()}</comment>
+        else
+            <comment>generated behaviour function for pb:behaviour/@ident={$behave/@ident/string()}</comment>,
+        <function name="model:{$behave/@ident}">
+            <param>$config as map(*)</param>
+            <param>$node as node()*</param>
+            <param>$class as xs:string+</param>
+            <param>$content</param>
+            {
+                for $param in $behave/pb:param[not(@value)]
+                return
+                    <param>${$param/@name/string()}</param>
+            }
+            <body>
+                $node ! (
+                    {
+                        for $param in $behave/pb:param[@value]
+                        return
+                            ``[let $`{$param/@name}` := `{$param/@value}`
+]``
+                    }
+                    { if ($behave/pb:param[@value]) then "return&#10;" else () }
+                    { pm:template-body($behave/pb:template, false()) }
+                )
+            </body>
+        </function>
+    )
+};
+
+
 declare %private function pm:declare-template-functions($odd as element(), $output as xs:string*) {
-    for $tmpl at $count in ($odd//tei:model[not(@output)]/pb:template | $odd//tei:model[@output=$output]/pb:template)
-    return
+    for $tmpl at $count in ($odd//tei:model/pb:template | $odd//tei:model/pb:template)
+    return (
+        <comment>generated template function; element spec: {$tmpl/ancestor::tei:elementSpec/@ident/string()}</comment>,
         <function name="model:template{$count}">
             <param>$config as map(*)</param>
             <param>$node as node()*</param>
             <param>$params as map(*)</param>
-            <body>{pm:template-body($tmpl)}</body>
+            <body>{pm:template-body($tmpl, true())}</body>
         </function>
+    )
 };
 
-declare %private function pm:template-body($template as element(pb:template)) {
+declare %private function pm:template-body($template as element(pb:template), $useMap as xs:boolean) {
     let $children := $template/*
     return
         if ($children) then
-            if (count($children) > 1) then
-                '"Error: pb:template requires a single child element!"'
-            else
-                pm:template-body-element($children)
+            pm:template-body-element($children, $useMap)
         else
-            pm:template-body-string($template)
+            pm:template-body-string($template, $useMap)
 };
 
-declare %private function pm:template-body-element($root as element()) {
-    let $text := serialize($root, map { "indent": false() })
-    let $code := replace($text, "\[\[([^\[\]]*?)\]\]", "{\$config?apply-children(\$config, \$node, \$params?$1)}")
+declare %private function pm:template-body-element($elems as element()+, $useMap as xs:boolean) {
+    let $code :=
+        string-join(
+            for $elem in $elems
+            let $text := serialize($elem, map { "indent": false() })
+            let $param := if ($useMap) then "\$params?$1" else "\$$1"
+            return
+                replace($text, "\[\[([^\[\]]*?)\]\]", "{\$config?apply-children(\$config, \$node, " || $param || ")}")
+        )
     return
-        if (namespace-uri-from-QName(node-name($root)) = "") then
+        if (namespace-uri-from-QName(node-name($elems[1])) = "") then
             '<t xmlns="">' || $code || '</t>/*'
         else
             $code
 };
 
-declare %private function pm:template-body-string($template as element(pb:template)) {
-    "``[" || replace($template/string(), "\[\[([^\[\]]*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, \$params?$1))}`") || "]``"
+declare %private function pm:template-body-string($template as element(pb:template), $useMap as xs:boolean) {
+    let $param := if ($useMap) then "\$params?$1" else "\$$1"
+    let $cmd := replace($template/string(), "\[\[([^\[\]]*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, " || $param || "))}`")
+    return
+        "``[" || $cmd || "]``"
 };

@@ -20,6 +20,7 @@ xquery version "3.0";
 module namespace odd="http://www.tei-c.org/tei-simple/odd2odd";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
+declare namespace pb="http://teipublisher.com/1.0";
 
 import module namespace console="http://exist-db.org/xquery/console" at "java:org.exist.console.xquery.ConsoleModule";
 
@@ -78,6 +79,13 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                 </fileDesc>
                 <encodingDesc>
                     <tagsDecl>
+                    {
+                        for $behaviour in $parent/teiHeader/encodingDesc/tagsDecl/pb:behaviour
+                        where empty($child/teiHeader/encodingDesc/tagsDecl/pb:behaviour[@xml:id = $behaviour/@xml:id])
+                        return
+                            $behaviour,
+                        $child/teiHeader/encodingDesc/tagsDecl/pb:behaviour
+                    }
                     {
                         for $rendition in $parent/teiHeader/encodingDesc/tagsDecl/rendition
                         where empty($child/teiHeader/encodingDesc/tagsDecl/rendition[@xml:id = $rendition/@xml:id])
