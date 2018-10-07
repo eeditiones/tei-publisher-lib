@@ -164,7 +164,7 @@ declare function pmf:glyph($config as map(*), $node as node(), $class as xs:stri
 
 declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content, $title) {
     "\begin{figure}[h]&#10;" ||
-    (if ($title) then "\caption{" || $title || "}&#10;" else ()) ||
+    (if (exists($title)) then "\caption{" || pmf:get-content($config, $node, $class, $title) || "}&#10;" else ()) ||
     pmf:get-content($config, $node, $class, $content) ||
     "\end{figure}&#10;"
 };
@@ -252,6 +252,7 @@ declare function pmf:document($config as map(*), $node as node(), $class as xs:s
         "\usepackage{hyperref}&#10;",
         "\usepackage{ifxetex}&#10;",
         "\usepackage{longtable}&#10;",
+        "\usepackage{tabu}&#10;",
         "\usepackage[maxfloats=64]{morefloats}&#10;",
         "\usepackage{listings}&#10;",
         "\lstset{&#10;",
@@ -302,12 +303,12 @@ declare function pmf:title($config as map(*), $node as node(), $class as xs:stri
     "\title{", pmf:get-content($config, $node, $class, $content), "}&#10;"
 };
 
-declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
-    let $cols := max($node/tei:row ! count(tei:cell))
+declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content, $optional as map(*)) {
+    let $cols := if ($optional?columns) then $optional?columns else max($node/* ! count(*))
     return
-        "\begin{longtable}[h]{" || string-join((1 to $cols) ! "l") || "}&#10;",
+        "\begin{longtabu} {" || string-join((1 to $cols) ! "X[l]") || "}&#10;",
         $config?apply-children($config, $node, $content),
-        "\end{longtable}&#10;"
+        "\end{longtabu}&#10;"
 };
 
 declare function pmf:row($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -348,23 +349,24 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
         ()
 };
 
-declare function pmf:escapeChars($text as xs:string?) {
-    replace(
-        replace(
+declare function pmf:escapeChars($text as item()?) {
+    typeswitch ($text)
+        case text() return
             replace(
                 replace(
                     replace(
-                        replace($text, "\\", "\\textbackslash "),
-                        '~','\\textasciitilde '
+                        replace(
+                            replace($text, "\\", "\\textbackslash "),
+                            '~','\\textasciitilde '
+                        ),
+                        '\^','\\textasciicircum '
                     ),
-                    '\^','\\textasciicircum '
+                    "_", "\\textunderscore "
                 ),
-                "_", "\\textunderscore "
-            ),
-            "([\}\{%&amp;\$#])", "\\$1"
-        ),
-        "\s+", " "
-    )
+                "([\}\{%&amp;\$#])", "\\$1"
+            )
+        default return
+            $text
 };
 
 declare function pmf:get-content($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -567,7 +569,7 @@ declare %private function pmf:style($names as xs:string*, $styles as map(*), $te
 };
 
 declare function pmf:load-styles($config as map(*), $root as document-node()) {
-    let $css := css:generate-css($root)
+    let $css := css:generate-css($root, "latex")
     let $styles := css:parse-css($css)
     let $styles := map:new(($config?rendition-styles, $styles))
     let $config := pmf:macros(map:new(($config, map { "styles": $styles })))

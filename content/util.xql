@@ -186,7 +186,7 @@ declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xquer
 };
 
 declare function pmu:extract-styles($odd as document-node(), $name as xs:string, $output-root as xs:string) {
-    let $style := css:generate-css($odd)
+    let $style := css:generate-css($odd, "web")
     let $path :=
         xmldb:store($output-root, $name || ".css", $style, "text/css")
     return

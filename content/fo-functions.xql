@@ -545,7 +545,7 @@ declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?
 };
 
 declare function pmf:load-styles($config as map(*), $root as document-node()) {
-    let $css := css:generate-css($root)
+    let $css := css:generate-css($root, "fo")
     let $styles := css:parse-css($css)
     let $styles :=
         map:new(($config, map:entry("styles", $styles)))

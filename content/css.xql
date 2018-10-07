@@ -44,12 +44,15 @@ declare function css:parse-css($css as xs:string) {
     )
 };
 
-declare function css:generate-css($root as document-node()) {
+declare function css:generate-css($root as document-node(), $output as xs:string) {
     string-join((
         "/* Generated stylesheet. Do not edit. */&#10;",
         "/* Generated from " || document-uri($root) || " */&#10;&#10;",
-        "/* Global styles */&#10;",
-        css:global-css($root),
+        if ($output = "web") then (
+            "/* Global styles */&#10;",
+            css:global-css($root)
+        ) else
+            (),
         for $rend in $root//tei:rendition[@xml:id]
         return
             "&#10;.simple_" || $rend/@xml:id || " { " ||
