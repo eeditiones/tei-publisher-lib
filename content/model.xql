@@ -594,48 +594,42 @@ declare %private function pm:get-model-elements($context as element(), $output a
 
 declare %private function pm:declare-behaviour-functions($odd as element(), $output as xs:string*) {
     for $behave in root($odd)//pb:behaviour[not(@output)] | root($odd)//pb:behaviour[@output = $output]
-    return (
-        if ($behave/tei:desc) then
-            <comment>{$behave/tei:desc/string()}</comment>
-        else
-            <comment>generated behaviour function for pb:behaviour/@ident={$behave/@ident/string()}</comment>,
-        <function name="model:{$behave/@ident}">
-            <param>$config as map(*)</param>
-            <param>$node as node()*</param>
-            <param>$class as xs:string+</param>
-            <param>$content</param>
-            {
-                for $param in $behave/pb:param[not(@value)]
-                return
-                    <param>${$param/@name/string()}</param>
-            }
-            <body>
-                $node ! (
-                    {
-                        for $param in $behave/pb:param[@value]
-                        return
-                            ``[let $`{$param/@name}` := `{$param/@value}`
+    let $extraParams := string-join(
+        for $param in $behave/pb:param[not(@value)] return ``[, $`{$param/@name/string()}`]``
+    )
+    let $letStmts :=
+        for $param in $behave/pb:param[@value]
+        return
+            ``[        let $`{$param/@name}` := `{$param/@value}`
 ]``
-                    }
-                    { if ($behave/pb:param[@value]) then "return&#10;" else () }
-                    { pm:template-body($behave/pb:template, false()) }
-                )
-            </body>
-        </function>
+    let $comment :=
+        if ($behave/tei:desc) then
+            $behave/tei:desc/string()
+        else
+            ``[Generated behaviour function for ident `{$behave/@ident/string()}`]``
+    return (
+        <comment>{$comment}</comment>,
+<code>{``[declare %private function model:`{$behave/@ident}`($config as map(*), $node as node()*, $class as xs:string+, $content`{$extraParams}`) {
+    $node ! (
+`{$letStmts}`
+        `{ if ($behave/pb:param[@value]) then "return&#10;" else () }`
+        `{ pm:template-body($behave/pb:template, false()) }`
+    )
+};
+
+]``}</code>
     )
 };
 
 
 declare %private function pm:declare-template-functions($odd as element(), $output as xs:string*) {
-    for $tmpl at $count in ($odd//tei:model/pb:template | $odd//tei:model/pb:template)
+    for $tmpl at $count in ($odd//tei:model[@output=$output]/pb:template | $odd//tei:model[not(@output)]/pb:template)
     return (
-        <comment>generated template function; element spec: {$tmpl/ancestor::tei:elementSpec/@ident/string()}</comment>,
-        <function name="model:template{$count}">
-            <param>$config as map(*)</param>
-            <param>$node as node()*</param>
-            <param>$params as map(*)</param>
-            <body>{pm:template-body($tmpl, true())}</body>
-        </function>
+        <comment>generated template function for element spec: {$tmpl/ancestor::tei:elementSpec/@ident/string()}</comment>,
+<code>{``[declare %private function model:template`{$count}`($config as map(*), $node as node()*, $params as map(*)) {
+    `{pm:template-body($tmpl, true())}`
+};
+]``}</code>
     )
 };
 
@@ -668,5 +662,5 @@ declare %private function pm:template-body-string($template as element(pb:templa
     let $param := if ($useMap) then "\$params?$1" else "\$$1"
     let $cmd := replace($template/string(), "\[\[([^\[\]]*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, " || $param || "))}`")
     return
-        "``[" || $cmd || "]``"
+        "``[" || replace($cmd, "^\s*", "", "m") || "]``"
 };

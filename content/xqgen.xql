@@ -34,6 +34,8 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
         for $node in $nodes
         return
             typeswitch ($node)
+                case element(code) return
+                    $node/node()
                 case element(xquery) return
                     xqgen:generate($node/*, $indent)
                 case element(module) return
@@ -123,7 +125,7 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
                     xqgen:indent($indent) || "}" || $xqgen:LF
                 case element(entry) return
                     xqgen:indent($indent) || $node/@key || ": " || $node/@value
-                case text() return
+                case text() | xs:string return
                     xqgen:indent($node, $indent)
                 default return
                     ()
