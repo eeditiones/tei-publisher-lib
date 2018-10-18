@@ -312,10 +312,18 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
     if ($config?parameters?webcomponents) then
-        <span class="alternate {$class}">
+        let $nodeId :=
+                if ($node/@exist:id) then
+                    $node/@exist:id
+                else
+                    util:node-id($node)
+         let $id := translate($nodeId, "-.", "__")
+         return   
+        (<span class="alternate {$class}"  id="altref_{$id}">
             <span class="default">{pmf:apply-children($config, $node, $default)}</span>
-            <paper-tooltip position="bottom" fit-to-visible-bounds="fit-to-visible-bounds">{pmf:apply-children($config, $node, $alternate)}</paper-tooltip>
-        </span>
+        </span>,
+        <paper-tooltip for="altref_{$id}" position="bottom" fit-to-visible-bounds="fit-to-visible-bounds">{pmf:apply-children($config, $node, $alternate)}</paper-tooltip>
+        )
     else
         <span class="alternate {$class}">
             <span>{pmf:apply-children($config, $node, $default)}</span>
