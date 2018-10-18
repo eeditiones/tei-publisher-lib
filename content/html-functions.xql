@@ -196,21 +196,21 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                         $nr
                     }
                     </a>
-                    {
-                        if ($config?parameters?webcomponents) then
-                            <paper-tooltip position="top" fit-to-visible-bounds="fit-to-visible-bounds">
-                                {$content}
-                            </paper-tooltip>
-                        else
-                            ()
-                    }
+                   
                 </span>,
-                <li class="footnote" id="fn_{$id}" value="{$nr}">
+                <li class="footnote" id="fn_{$id}" value="{$nr}">              
                     <span class="fn-content">
                         {$content}
                     </span>
                     <a class="fn-back" href="#fnref_{$id}">↩</a>
-                </li>
+                </li>,
+                    if ($config?parameters?webcomponents) then
+                        <paper-tooltip position="top" for="fnref_{$id}" fit-to-visible-bounds="fit-to-visible-bounds">
+                            {$content}
+                        </paper-tooltip>
+                    else
+                        ()
+                 
             )
 };
 
