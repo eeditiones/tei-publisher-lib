@@ -399,7 +399,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                         <comment>{$model/tei:desc}</comment>
                     else
                         (),
-                    pm:expand-template($model, $params),
+                    pm:expand-template($model, $params, $output),
                     <function-call name="{$fn?prefix}:{$task}">
                         {
                             if ($model/pb:template) then
@@ -488,30 +488,35 @@ declare %private function pm:lookup($modules as array(*), $task as xs:string, $a
         ()
 };
 
-declare %private function pm:expand-template($model as element(tei:model), $params as element(tei:param)*) {
-    if ($model/pb:template) then (
-        <let var="params">
-            <expr>
-                <map>
-                {
-                    for $param in $params
-                    return
-                        <entry key='"{$param/@name}"' value="{$param/@value}"/>
-                }
-                </map>
-            </expr>
-        </let>,
-        <let var="content">
-            <expr>
-                <function-call name="model:template{count($model/preceding::pb:template[parent::tei:model]) + 1}">
-                    <param>$config</param>
-                    <param>.</param>
-                    <param>$params</param>
-                </function-call>
-            </expr>
-            <return/>
-        </let>
-    ) else
+declare %private function pm:expand-template($model as element(tei:model), $params as element(tei:param)*, $output as xs:string+) {
+    if ($model/pb:template) then
+        let $preceding := $model/preceding::pb:template[parent::tei:model[not(@output)]] |
+            $model/preceding::pb:template[parent::tei:model[@output = $output]]
+        let $pos := count($preceding) + 1
+        return (
+            <let var="params">
+                <expr>
+                    <map>
+                    {
+                        for $param in $params
+                        return
+                            <entry key='"{$param/@name}"' value="{$param/@value}"/>
+                    }
+                    </map>
+                </expr>
+            </let>,
+            <let var="content">
+                <expr>
+                    <function-call name="model:template{$pos}">
+                        <param>$config</param>
+                        <param>.</param>
+                        <param>$params</param>
+                    </function-call>
+                </expr>
+                <return/>
+            </let>
+        )
+    else
         ()
 };
 
