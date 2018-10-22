@@ -7,7 +7,7 @@
     <license>GPLv3</license>
     <copyright>true</copyright>
     <type>library</type>
-    <target>tei-publisher-lib</target>
+    <target/>
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
