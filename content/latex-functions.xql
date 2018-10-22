@@ -371,11 +371,7 @@ declare function pmf:escapeChars($text as item()?) {
 
 declare function pmf:get-content($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-before($config, $class),
-    let $processed :=
-        if ($config?template) then
-            $content
-        else
-            $config?apply-children($config, $node, $content)
+    let $processed := $config?apply-children($config, $node, $content)
     return
         pmf:check-styles($config, $class, $processed),
     pmf:get-after($config, $class)

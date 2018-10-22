@@ -219,16 +219,19 @@ return (
                     <param>$node as element()</param>
                     <param>$content as item()*</param>
                     <body>
-$content ! (
-    typeswitch(.)
-        case element() return
-            if (. is $node) then
-                $config?apply($config, ./node())
-            else
-                $config?apply($config, .)
-        default return
-            {$modules?1?prefix}:escapeChars(.)
-)</body>
+if ($config?template) then
+    $content
+else
+    $content ! (
+        typeswitch(.)
+            case element() return
+                if (. is $node) then
+                    $config?apply($config, ./node())
+                else
+                    $config?apply($config, .)
+            default return
+                {$modules?1?prefix}:escapeChars(.)
+    )</body>
             </function>
             </module>
         </xquery>
