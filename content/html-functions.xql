@@ -29,13 +29,13 @@ module namespace pmf="http://www.tei-c.org/tei-simple/xquery/functions";
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
-import module namespace counter="http://exist-db.org/xquery/counter" at "java:org.exist.xquery.modules.counter.CounterModule";
+import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counters";
 
 declare variable $pmf:NOTE_COUNTER_ID := "notes-" || util:uuid();
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
     let $styles := css:rendition-styles-html($config, $node)
-    let $counter := counter:create($pmf:NOTE_COUNTER_ID)
+    let $counter := counters:create($pmf:NOTE_COUNTER_ID)
     return
         if ($styles != "") then
             <style type="text/css">{ $styles }</style>
@@ -44,7 +44,7 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
 };
 
 declare function pmf:finish($config as map(*), $input as node()*) {
-    let $destroy := counter:destroy($pmf:NOTE_COUNTER_ID)
+    let $destroy := counters:destroy($pmf:NOTE_COUNTER_ID)
     return
         $input
 };
@@ -187,7 +187,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 if ($label and ($label castable as xs:integer)) then
                     xs:integer($label)
                 else
-                    counter:next-value($pmf:NOTE_COUNTER_ID)
+                    counters:increment($pmf:NOTE_COUNTER_ID)
             let $content := $config?apply-children($config, $node, $content)
             return (
                 <span id="fnref_{$id}" style="display:inline-block">
