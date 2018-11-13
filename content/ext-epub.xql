@@ -6,8 +6,10 @@ xquery version "3.1";
 module namespace pmf="http://www.tei-c.org/tei-simple/xquery/functions/epub";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
+declare namespace epub="http://www.idpf.org/2007/ops";
 
 import module namespace html="http://www.tei-c.org/tei-simple/xquery/functions";
+import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counters";
 
 declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
     <div class="{$class}">
@@ -25,10 +27,9 @@ declare function pmf:break($config as map(*), $node as node(), $class as xs:stri
     switch($type)
         case "page" return
             if ($label) then
-                <span class="{$class}"
-                    title="{$config?apply-children($config, $node, $content)}">[p. <span>{$config?apply-children($config, $node, $label)}</span>]</span>
+                <span class="pagebreak {$class}" id="page{$label}" epub:type="pagebreak">{$label}</span>
             else
-                <span class="{$class}">[{$config?apply-children($config, $node, $content)}]</span>
+                <span id="page{translate(generate-id($node), ".", "_")}" epub:type="pagebreak" class="pagebreak {$class}">[{$config?apply-children($config, $node, $content)}]</span>
         default return
             <br/>
 };
@@ -45,22 +46,12 @@ declare function pmf:cells($config as map(*), $node as node(), $class as xs:stri
 
 declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
     let $id := translate(generate-id($node), ".", "_")
-    return
-        switch ($place)
-            case "margin" return (
-                <a id="A{$id}" class="note {$class}" href="endnotes.html#{$id}">
-                {count($node/preceding::tei:note intersect $node/ancestor::tei:body//tei:note) + 1}
-                </a>,
-                <span id="{$id}" class="endnote" style="display: none;">
-                { $config?apply($config, $content/node()) }
-                </span>
-            )
-            default return (
-                <a id="A{$id}" class="note {$class}" href="endnotes.html#{$id}">
-                {count($node/preceding::tei:note intersect $node/ancestor::tei:body//tei:note) + 1}
-                </a>,
-                <span id="{$id}" class="endnote" style="display: none;">
-                { $config?apply($config, $content/node()) }
-                </span>
-            )
+    return (
+        <a epub:type="noteref" href="#fn{$id}" class="noteref">
+        { counters:increment($html:NOTE_COUNTER_ID) }
+        </a>,
+        <aside epub:type="footnote" id="fn{$id}" class="note">
+        { $config?apply($config, $content/node()) }
+        </aside>
+    )
 };
