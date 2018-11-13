@@ -146,7 +146,7 @@ declare function pmf:figure($config as map(*), $node as node(), $class as xs:str
     { pmf:apply-children($config, $node, $content) }
     {
         if ($title) then
-            <figcaption>{ pmf:apply-children($config, $node, $title) }</figcaption>
+            <figcaption>{ $config?apply-children($config, $node, $title) }</figcaption>
         else
             ()
     }
@@ -196,9 +196,9 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                         $nr
                     }
                     </a>
-                   
+
                 </span>,
-                <li class="footnote" id="fn_{$id}" value="{$nr}">              
+                <li class="footnote" id="fn_{$id}" value="{$nr}">
                     <span class="fn-content">
                         {$content}
                     </span>
@@ -210,7 +210,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                         </paper-tooltip>
                     else
                         ()
-                 
+
             )
 };
 
@@ -318,7 +318,7 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
                 else
                     util:node-id($node)
          let $id := translate($nodeId, "-.", "__")
-         return   
+         return
         (<span class="alternate {$class}"  id="altref_{$id}">
             <span class="default">{pmf:apply-children($config, $node, $default)}</span>
         </span>,

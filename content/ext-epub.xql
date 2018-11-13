@@ -55,3 +55,16 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
         </aside>
     )
 };
+
+declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
+    $alternate) {
+    let $id := translate(generate-id($node), ".", "_")
+    return (
+        <a epub:type="noteref" href="#fn{$id}" class="alternate {$class}">
+        { html:apply-children($config, $node, $default) }
+        </a>,
+        <aside epub:type="footnote" id="fn{$id}" class="altcontent">
+        { html:apply-children($config, $node, $alternate) }
+        </aside>
+    )
+};
