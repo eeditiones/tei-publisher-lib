@@ -79,16 +79,31 @@ declare function css:generate-css($root as document-node(), $output as xs:string
 };
 
 declare function css:global-css($root as document-node()) {
-    let $tagsDecl := $root//tei:teiHeader/tei:encodingDesc/tei:tagsDecl
+    string-join((
+            css:global-css-by-selector($root),
+            css:global-css-by-rendition($root)
+        ),
+        "&#10;&#10;"
+    )
+};
+
+declare %private function css:global-css-by-selector($root as document-node()) {
+    for $rendition in $root//tei:teiHeader/tei:encodingDesc/tei:tagsDecl/tei:rendition[@selector]
     return
-        string-join(
-            for $rendition in $tagsDecl/tei:rendition[@selector]
-            return
-                $rendition/@selector || " {&#10;" ||
-                replace($rendition/text(), "^\s*(.*)$", "&#9;$1", "m") ||
-                "}",
-            "&#10;&#10;"
-        )
+        $rendition/@selector || " {&#10;" ||
+        replace($rendition/text(), "^\s*(.*)$", "&#9;$1", "m") ||
+        "}"
+};
+
+declare %private function css:global-css-by-rendition($root as document-node()) {
+    for $source in $root//tei:teiHeader/tei:encodingDesc/tei:tagsDecl/tei:rendition/@source
+    let $css := util:binary-doc(util:collection-name($root) || "/" || $source)
+    return 
+        if (exists($css)) then (
+            "&#10;/* external styles loaded from " || $source || " */&#10;",
+            util:binary-to-string($css)
+        ) else
+            "&#10;/* external styles not found: " || util:collection-name($root) || "/" || $source || " */&#10;"
 };
 
 
