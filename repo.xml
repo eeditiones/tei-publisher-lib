@@ -11,6 +11,13 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="2.6.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Faster loading of behaviour library by avoiding use of counter module where possible</li>
+                <li>Support CSS styles for web to be loaded from external css via &lt;rendition source="myfile.css"/&gt;</li>
+                <li>Use $get(.) to get the original source element for the current node. Used to fix computation of heading levels</li>
+            </ul>
+        </change>
         <change version="2.5.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Support for templates and user-defined behaviours within the ODD</li>
