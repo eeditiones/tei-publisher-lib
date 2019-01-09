@@ -44,13 +44,12 @@ declare function css:parse-css($css as xs:string) {
     )
 };
 
-declare function css:generate-css($root as document-node(), $output as xs:string) {
+declare function css:generate-css($root as document-node(), $output as xs:string, $path as xs:string) {
     string-join((
         "/* Generated stylesheet. Do not edit. */&#10;",
-        "/* Generated from " || document-uri($root) || " */&#10;&#10;",
         if ($output = "web") then (
             "/* Global styles */&#10;",
-            css:global-css($root)
+            css:global-css($root, $path)
         ) else
             (),
         for $rend in $root//tei:rendition[@xml:id]
@@ -78,10 +77,10 @@ declare function css:generate-css($root as document-node(), $output as xs:string
     ))
 };
 
-declare function css:global-css($root as document-node()) {
+declare function css:global-css($root as document-node(), $oddPath as xs:string) {
     string-join((
             css:global-css-by-selector($root),
-            css:global-css-by-rendition($root)
+            css:global-css-by-rendition($root, $oddPath)
         ),
         "&#10;&#10;"
     )
@@ -95,10 +94,11 @@ declare %private function css:global-css-by-selector($root as document-node()) {
         "}"
 };
 
-declare %private function css:global-css-by-rendition($root as document-node()) {
+declare %private function css:global-css-by-rendition($root as document-node(), $oddPath as xs:string) {
+    let $cssPath := replace($oddPath, "^(.*?)/[^/]+$", "$1")
     for $source in $root//tei:teiHeader/tei:encodingDesc/tei:tagsDecl/tei:rendition/@source
-    let $css := util:binary-doc(util:collection-name($root) || "/" || $source)
-    return 
+    let $css := util:binary-doc($cssPath || "/" || $source)
+    return
         if (exists($css)) then (
             "&#10;/* external styles loaded from " || $source || " */&#10;",
             util:binary-to-string($css)

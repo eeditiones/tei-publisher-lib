@@ -122,10 +122,10 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
         if (empty($module)) then
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
-            let $log := console:log("mode: " || $mode || ", output mode is " || string-join($module?output?*, ", "))
+            let $log := console:log("source: " || $oddPath || ", mode: " || $mode || ", output mode is " || string-join($module?output?*, ", "))
             let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*)
             let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
-            let $style := pmu:extract-styles($odd, $name, $output-root)
+            let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
             let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
             let $module := pmu:generate-module($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
             return
@@ -185,8 +185,8 @@ declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xquer
         $stored
 };
 
-declare function pmu:extract-styles($odd as document-node(), $name as xs:string, $output-root as xs:string) {
-    let $style := css:generate-css($odd, "web")
+declare function pmu:extract-styles($odd as document-node(), $name as xs:string, $oddPath as xs:string, $output-root as xs:string) {
+    let $style := css:generate-css($odd, "web", $oddPath)
     let $path :=
         xmldb:store($output-root, $name || ".css", $style, "text/css")
     return

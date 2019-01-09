@@ -565,7 +565,7 @@ declare %private function pmf:style($names as xs:string*, $styles as map(*), $te
 };
 
 declare function pmf:load-styles($config as map(*), $root as document-node()) {
-    let $css := css:generate-css($root, "latex")
+    let $css := css:generate-css($root, "latex", $config?odd)
     let $styles := css:parse-css($css)
     let $styles := map:new(($config?rendition-styles, $styles))
     let $config := pmf:macros(map:new(($config, map { "styles": $styles })))
