@@ -86,17 +86,20 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
         let $listType := ($type, $node/@type)[1]
         return
             switch($listType)
+                case "custom" return
+                    <dl class="list {$class}">{ pmf:apply-children($config, $node, $content) }</dl>
                 case "ordered" return
                     <ol class="{$class}">{pmf:apply-children($config, $node, $content)}</ol>
                 default return
                     <ul class="{$class}">{pmf:apply-children($config, $node, $content)}</ul>
 };
 
-declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content,
-    $n) {
+declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
     let $label :=
         if ($node/../tei:label) then
             $node/preceding-sibling::*[1][self::tei:label]
+        else if ($n) then
+            $n
         else
             ()
     return
@@ -105,7 +108,6 @@ declare function pmf:listItem($config as map(*), $node as node(), $class as xs:s
             <dd>{pmf:apply-children($config, $node, $content)}</dd>
         ) else
             <li class="{$class}">
-            { if ($n) then attribute value { $n } else () }
             { pmf:apply-children($config, $node, $content) }
             </li>
 };
@@ -184,26 +186,30 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                     util:node-id($node)
             let $id := translate($nodeId, "-.", "__")
             let $nr :=
-                if ($label and ($label castable as xs:integer)) then
-                    xs:integer($label)
+                if ($label) then
+                    $label
                 else
                     counters:increment($pmf:NOTE_COUNTER_ID)
             let $content := $config?apply-children($config, $node, $content)
             return (
-                <span id="fnref_{$id}" style="display:inline-block">
+                <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
                     <a class="note" rel="footnote" href="#fn_{$id}">
                     {
-                        $nr
+                        if ($nr instance of attribute()) then
+                            $nr/string()
+                        else
+                            $nr
                     }
                     </a>
 
                 </span>,
-                <li class="footnote" id="fn_{$id}" value="{$nr}">
-                    <span class="fn-content">
+                <dl class="footnote" id="fn_{$id}">
+                    <dt class="fn-number">{ if ($nr instance of attribute()) then $nr/string() else $nr }</dt>
+                    <dd class="fn-content">
                         {$content}
-                    </span>
-                    <a class="fn-back" href="#fnref_{$id}">↩</a>
-                </li>,
+                        <a class="fn-back" href="#fnref_{$id}">↩</a>
+                    </dd>
+                </dl>,
                     if ($config?parameters?webcomponents) then
                         <paper-tooltip position="top" for="fnref_{$id}" fit-to-visible-bounds="fit-to-visible-bounds">
                             {$content}
