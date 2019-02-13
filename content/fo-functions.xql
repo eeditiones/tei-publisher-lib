@@ -419,7 +419,8 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
-    $config?apply-children($config, $node, $alternate)
+    $config?apply-children($config, $node, $default),
+    pmf:note($config, $node, $class, $alternate, "footnote", ())
 };
 
 declare function pmf:omit($config as map(*), $node as node(), $class as xs:string+, $content) {
