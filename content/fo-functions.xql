@@ -82,8 +82,13 @@ declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:
     </fo:block>
 };
 
-declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content) {
-    let $level := if ($content instance of node()) then max((count($content/ancestor::tei:div), 1)) else 1
+declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content, $level) {
+    let $level :=
+        if ($level) then
+            $level
+        else if ($content instance of node()) then
+            max((count($content/ancestor::tei:div), 1))
+        else 1
     let $class := $class[not(starts-with(., "tei-head"))]
     let $defaultStyle := $config?default-styles("tei-head" || $level)
     return
@@ -104,7 +109,7 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
                         </fo:block>
                     </fo:table-cell>
                 </fo:table-row>
-        else if ($content instance of node() and $content//text()) then (
+        else (
             comment { "heading level " || $level || " (" || string-join(("tei-head" || $level, $class), ", ") || ")"},
             <fo:block>
             {
@@ -123,11 +128,10 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
                 $config?apply-children($config, $node, $content)
             }
             </fo:block>
-        ) else
-            ()
+        )
 };
 
-declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content) {
+declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
     comment { "list" || " (" || string-join($class, ", ") || ")"},
     let $label-length :=
         if ($node/tei:label) then
@@ -138,36 +142,39 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
         <fo:list-block provisional-distance-between-starts="{$label-length}em">
         {
             pmf:check-styles($config, $node, $class, ()),
-            $config?apply($config, $content)
+            $config?apply(map:merge(($config, map:entry("listType", $type))), $content)
         }
         </fo:list-block>
 };
 
-declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content) {
+declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
     comment { "listItem" || " (" || string-join($class, ", ") || ")"},
-    <fo:list-item>
-        { pmf:check-styles($config, $node, $class, ()) }
-        <fo:list-item-label>
-        {
-            pmf:check-styles($config, $node, "tei-listItem-label", (), false()),
-            if ($node/preceding-sibling::tei:label) then
-                <fo:block>{$config?apply($config, $node/preceding-sibling::tei:label[1])}</fo:block>
-            else
-                switch ($node/parent::tei:list/@type)
-                    case "ordered" return
-                        <fo:block>{count($node/preceding-sibling::tei:item) + 1}.</fo:block>
-                    default return
-                        <fo:block>&#8226;</fo:block>
-        }
-        </fo:list-item-label>
-        <fo:list-item-body start-indent="body-start()">
-            <fo:block>
+    let $label :=
+        if ($node/../tei:label) then
+            $node/preceding-sibling::*[1][self::tei:label]
+        else if ($n) then
+            $n
+        else if ($config?listType = 'ordered') then
+            count($node/preceding-sibling::*) + 1 || "."
+        else
+            "&#8226;"
+    return
+        <fo:list-item>
+            { pmf:check-styles($config, $node, $class, ()) }
+            <fo:list-item-label>
             {
-                $config?apply-children($config, $node, $content)
+                pmf:check-styles($config, $node, "tei-listItem-label", (), false()),
+                <fo:block>{$label}</fo:block>
             }
-            </fo:block>
-        </fo:list-item-body>
-    </fo:list-item>
+            </fo:list-item-label>
+            <fo:list-item-body start-indent="body-start()">
+                <fo:block>
+                {
+                    $config?apply-children($config, $node, $content)
+                }
+                </fo:block>
+            </fo:list-item-body>
+        </fo:list-item>
 };
 
 declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -364,6 +371,7 @@ declare function pmf:document($config as map(*), $node as node(), $class as xs:s
             pmf:load-xml($config, "master.fo.xml")
         }
         {
+            comment { "document (" || string-join($class, ", ") || ")"},
             pmf:load-page-sequence($config, $node, $content, $language)
         }
         </fo:root>

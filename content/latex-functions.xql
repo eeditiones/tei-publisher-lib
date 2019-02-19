@@ -73,8 +73,13 @@ declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:
         "&#10;&#10;"
 };
 
-declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content) {
-    let $level := if ($content instance of node()) then max((count($content/ancestor::tei:div), 1)) else 1
+declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content, $level) {
+    let $level :=
+        if ($level) then
+            $level
+        else if ($content instance of node()) then
+            max((count($content/ancestor::tei:div), 1))
+        else 1
     let $headType :=
         if (pmf:get-property($config, "class", "book") = ("book", "report")) then
             if ($level <= array:size($pmf:HEADINGS_BOOK)) then
@@ -102,7 +107,7 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
     )
 };
 
-declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content) {
+declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
     if ($node/tei:label) then
         let $max := max($node/tei:label ! string-length(.))
         let $longest := ($node/tei:label[string-length(.) = $max])[1]/string()
@@ -112,22 +117,32 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
             "\end{description}&#10;"
         )
     else
-        switch($node/@type)
-            case "ordered" return (
-                "\begin{enumerate}&#10;",
-                $config?apply($config, $content),
-                "\end{enumerate}&#10;"
-            )
-            default return (
-                "\begin{itemize}&#10;",
-                $config?apply($config, $content),
-                "\end{itemize}&#10;"
-            )
+        let $listType := ($type, $node/@type)[1]
+        return
+            switch($listType)
+                case "ordered" return (
+                    "\begin{enumerate}&#10;",
+                    $config?apply($config, $content),
+                    "\end{enumerate}&#10;"
+                )
+                default return (
+                    "\begin{itemize}&#10;",
+                    $config?apply($config, $content),
+                    "\end{itemize}&#10;"
+                )
 };
 
-declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content) {
-    if ($node/preceding-sibling::tei:label) then
-        "\item[" || pmf:get-content($config, $node, $class, $node/preceding-sibling::tei:label[1]) || "]\hfill \\ {" ||
+declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
+    let $label :=
+        if ($node/../tei:label) then
+            $node/preceding-sibling::*[1][self::tei:label]
+        else if ($n) then
+            $n
+        else
+            ()
+    return
+    if ($label) then
+        "\item[" || pmf:get-content($config, $node, $class, $label) || "]\hfill \\ {" ||
         pmf:get-content($config, $node, $class, $content) || "}&#10;"
     else
         "\item {" || pmf:get-content($config, $node, $class, $content) || "&#10;}"
