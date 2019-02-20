@@ -52,6 +52,8 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
                         (if ($node/@at and $node/@at != '') then ' at "' || $node/@at || '"' else ()),
                         ';' || $xqgen:LFF
                     ))
+                case element(declare-option) return
+                    'declare option ' || $node/@option || '"' || $node/@value || '";' || $xqgen:LFF
                 case element(function) return
                     'declare function ' || $node/@name || '(' ||
                     string-join(
@@ -121,6 +123,11 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
                 case element(map) return
                     xqgen:indent($indent) || "map {" || $xqgen:LF ||
                     string-join(for $entry in $node/entry return xqgen:generate($entry, $indent + 1), "," || $xqgen:LF) ||
+                    $xqgen:LF ||
+                    xqgen:indent($indent) || "}" || $xqgen:LF
+                case element(array) return
+                    xqgen:indent($indent) || "array {" || $xqgen:LF ||
+                    string-join(for $entry in $node/item return xqgen:generate($entry/node(), $indent + 1), "," || $xqgen:LF) ||
                     $xqgen:LF ||
                     xqgen:indent($indent) || "}" || $xqgen:LF
                 case element(entry) return
