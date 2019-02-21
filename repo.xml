@@ -11,6 +11,13 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+	<change version="2.7.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Fix loading of external CSS from relative path</li>
+                <li>HTML output: if a label is defined for a note or list item, output it directly. Adds "n" parameter to listItem.</li>
+                <li>Implement alternate for LaTeX the same way as for FO: output alternate as footnote after default</li>
+            </ul>
+        </change>
         <change version="2.6.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Faster loading of behaviour library by avoiding use of counter module where possible</li>
