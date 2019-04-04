@@ -507,9 +507,9 @@ declare %private function pm:lookup($modules as array(*), $task as xs:string, $a
 
 declare %private function pm:expand-template($model as element(tei:model), $params as element(tei:param)*, $output as xs:string+) {
     if ($model/pb:template) then
-        let $preceding := $model/preceding::pb:template[parent::tei:model[not(@output)]] |
-            $model/preceding::pb:template[parent::tei:model[@output = $output]]
-        let $pos := count($preceding) + 1
+        let $spec := $model/ancestor::tei:elementSpec[1]
+        let $count := count($spec//tei:model[. << $model]) + 1
+        let $pos := if ($count > 1) then $count else ()
         return (
             <let var="params">
                 <expr>
@@ -524,7 +524,7 @@ declare %private function pm:expand-template($model as element(tei:model), $para
             </let>,
             <let var="content">
                 <expr>
-                    <function-call name="model:template{$pos}">
+                    <function-call name="model:template-{$spec/@ident/string()}{$pos}">
                         <param>$config</param>
                         <param>.</param>
                         <param>$params</param>
@@ -645,10 +645,14 @@ declare %private function pm:declare-behaviour-functions($odd as element(), $out
 
 
 declare %private function pm:declare-template-functions($odd as element(), $output as xs:string*) {
-    for $tmpl at $count in ($odd//tei:model[@output=$output]/pb:template | $odd//tei:model[not(@output)]/pb:template)
+    for $tmpl in ($odd//tei:model[@output=$output]/pb:template | $odd//tei:model[not(@output)]/pb:template)
+    let $spec := $tmpl/ancestor::tei:elementSpec[1]
+    let $model := $tmpl/..
+    let $count := count($spec//tei:model[. << $model]) + 1
+    let $pos := if ($count > 1) then $count else ()
     return (
-        <comment>generated template function for element spec: {$tmpl/ancestor::tei:elementSpec/@ident/string()}</comment>,
-<code>{``[declare %private function model:template`{$count}`($config as map(*), $node as node()*, $params as map(*)) {
+        <comment>generated template function for element spec: {$spec/@ident/string()}</comment>,
+<code>{``[declare %private function model:template-`{$spec/@ident/string()}``{$pos}`($config as map(*), $node as node()*, $params as map(*)) {
     `{pm:template-body($tmpl, true())}`
 };
 ]``}</code>
