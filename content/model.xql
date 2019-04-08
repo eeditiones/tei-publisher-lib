@@ -90,7 +90,7 @@ declare function pm:parse($odd as element(), $modules as array(*), $output as xs
                     <param>$input as node()*</param>
                     <body>
 let $config :=
-    map:new(($options,
+    map:merge(($options,
         map {{
             "output": [{ string-join(for $out in $output return '"' || $out || '"', ",")}],
             "odd": "{ $oddPath }",
@@ -264,7 +264,7 @@ declare function pm:load-modules($modules as array(*)) as array(*) {
             else
                 inspect:inspect-module-uri(xs:anyURI($module?uri))
         return
-            map:new(($module, map { "description": $meta }))
+            map:merge(($module, map { "description": $meta }))
     })
 };
 

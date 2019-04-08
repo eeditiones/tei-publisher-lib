@@ -115,7 +115,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
     let $ext-modules := pmu:parse-config($name, $mode, $config)
     let $module :=
         if (exists($ext-modules)) then
-            map:new(($modulesDefault, map:entry("modules", array { $modulesDefault?modules?*, $ext-modules })))
+            map:merge(($modulesDefault, map:entry("modules", array { $modulesDefault?modules?*, $ext-modules })))
         else
             $modulesDefault
     return
@@ -249,6 +249,6 @@ declare %private function pmu:fix-module-paths($modules as array(*)) {
             if (not(map:contains($module, "at")) or matches($module?at, "^(/|xmldb:).*")) then
                 $module
             else
-                map:new(($module, map:entry("at", system:get-module-load-path() || "/" || $module?at)))
+                map:merge(($module, map:entry("at", system:get-module-load-path() || "/" || $module?at)))
     }
 };

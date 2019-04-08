@@ -365,11 +365,13 @@ declare function pmf:webcomponent($config as map(*), $node as node()*, $class as
 
 
 declare function pmf:template($config as map(*), $node as node()*, $class as xs:string+, $content) {
-    element { local-name($content) } {
-        $node/@* except $content/@class,
-        attribute class { $content/@class, $class },
-        $content/node()
-    }
+    for $cn in $content
+    return
+        element { local-name($cn) } {
+            $node/@* except $cn/@class,
+            attribute class { $cn/@class, $class },
+            $cn/node()
+        }
 };
 
 declare function pmf:apply-children($config as map(*), $node as node(), $content) {

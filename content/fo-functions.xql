@@ -69,7 +69,7 @@ declare function pmf:init($config as map(*), $node as node()*) {
     let $renditionStyles := string-join(css:rendition-styles-html($config, $node))
     let $styles := if ($renditionStyles) then css:parse-css($renditionStyles) else map {}
     return
-        map:new(($config, map:entry("rendition-styles", $styles)))
+        map:merge(($config, map:entry("rendition-styles", $styles)))
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -491,11 +491,11 @@ declare function pmf:check-styles($config as map(*), $node as node()?, $classes 
         (),
     let $defaultStyles :=
         if (exists($default)) then
-            map:new(($default, $classes ! $config?default-styles(.)))
+            map:merge(($default, $classes ! $config?default-styles(.)))
         else
-            map:new($classes ! $config?default-styles(.))
+            map:merge($classes ! $config?default-styles(.))
     let $stylesForClass :=
-        map:new(
+        map:merge(
             for $class in $classes
             return (
                 pmf:filter-styles($config?styles?($class)),
@@ -530,7 +530,7 @@ declare %private function pmf:merge-maps($map as map(*), $defaults as map(*)?) {
     else if (empty($map)) then
         $defaults
     else
-        map:new(($defaults, $map))
+        map:merge(($defaults, $map))
 };
 
 declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?) {
@@ -539,11 +539,11 @@ declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?
     else if (empty($map)) then
         $defaults
     else
-        map:new((
-            map:for-each-entry($map, function($key, $value) {
-                map:entry($key, map:new(($defaults($key), $map($key))))
+        map:merge((
+            map:for-each($map, function($key, $value) {
+                map:entry($key, map:merge(($defaults($key), $map($key))))
             }),
-            map:for-each-entry($defaults, function($key, $value) {
+            map:for-each($defaults, function($key, $value) {
                 if (map:contains($map, $key)) then
                     ()
                 else
@@ -556,7 +556,7 @@ declare function pmf:load-styles($config as map(*), $root as document-node()) {
     let $css := css:generate-css($root, "fo", $config?odd)
     let $styles := css:parse-css($css)
     let $styles :=
-        map:new(($config, map:entry("styles", $styles)))
+        map:merge(($config, map:entry("styles", $styles)))
     return
         $styles
 };
@@ -569,7 +569,7 @@ declare function pmf:load-default-styles($config as map(*)) {
     let $systemStyles := pmf:read-css-string($systemCss)
     let $merged := pmf:merge-styles($userStyles, $systemStyles)
     return
-        map:new(($config, map:entry("default-styles", $merged)))
+        map:merge(($config, map:entry("default-styles", $merged)))
 };
 
 declare function pmf:load-xml($config as map(*), $file as xs:string) {
