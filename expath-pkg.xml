@@ -3,7 +3,6 @@
     <title>TEI Publisher: Processing Model Libraries</title>
     <dependency processor="http://exist-db.org" semver-min="3.6.0"/>
     <dependency package="http://exist-db.org/apps/shared"/>
-    <dependency package="http://exist-db.org/apps/monex"/>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions</namespace>
         <file>html-functions.xql</file>
