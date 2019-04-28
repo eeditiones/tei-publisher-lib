@@ -31,7 +31,6 @@ declare namespace output="http://www.w3.org/2010/xslt-xquery-serialization";
 import module namespace odd="http://www.tei-c.org/tei-simple/odd2odd";
 import module namespace pm="http://www.tei-c.org/tei-simple/xquery/model";
 import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
-import module namespace console="http://exist-db.org/xquery/console" at "java:org.exist.console.xquery.ConsoleModule";
 
 declare variable $pmu:ERR_UNKNOWN_MODE := xs:QName("pmu:err-mode-unknown");
 
@@ -122,7 +121,6 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
         if (empty($module)) then
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
-            let $log := console:log("source: " || $oddPath || ", mode: " || $mode || ", output mode is " || string-join($module?output?*, ", "))
             let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*)
             let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
             let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)

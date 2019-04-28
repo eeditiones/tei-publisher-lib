@@ -22,14 +22,11 @@ module namespace odd="http://www.tei-c.org/tei-simple/odd2odd";
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 declare namespace pb="http://teipublisher.com/1.0";
 
-import module namespace console="http://exist-db.org/xquery/console" at "java:org.exist.console.xquery.ConsoleModule";
-
 declare function odd:get-compiled($inputCol as xs:string, $odd as xs:string) as document-node() {
     odd:compile($inputCol, $odd)
 };
 
 declare function odd:compile($inputCol as xs:string, $odd as xs:string) as document-node() {
-    console:log("Compiling odd: " || $inputCol || "/" || $odd),
     let $compiled := odd:compile($inputCol, $odd)
     return
         $compiled
