@@ -16,6 +16,10 @@
         <file>latex-functions.xql</file>
     </xquery>
     <xquery>
+        <namespace>http://existsolutions.com/xquery/functions/docx</namespace>
+        <file>docx-functions.xql</file>
+    </xquery>
+    <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions/epub</namespace>
         <file>ext-epub.xql</file>
     </xquery>
@@ -42,5 +46,9 @@
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/counters</namespace>
         <file>counters.xql</file>
+    </xquery>
+    <xquery>
+        <namespace>http://existsolutions.com/teipublisher/docx</namespace>
+        <file>docx.xql</file>
     </xquery>
 </package>

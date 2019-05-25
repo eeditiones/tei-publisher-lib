@@ -74,6 +74,15 @@ declare variable $pmu:MODULES := map {
                 "prefix": "latex"
             }
         ]
+    },
+    "tei": map {
+        "output": ["tei"],
+        "modules": [
+            map {
+                "uri": "http://existsolutions.com/xquery/functions/docx",
+                "prefix": "docx"
+            }
+        ]
     }
 };
 
