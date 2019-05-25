@@ -524,7 +524,7 @@ declare %private function pm:expand-template($model as element(tei:model), $para
             </let>,
             <let var="content">
                 <expr>
-                    <function-call name="model:template-{$spec/@ident/string()}{$pos}">
+                    <function-call name="model:template-{translate($spec/@ident/string(), ':', '_')}{$pos}">
                         <param>$config</param>
                         <param>.</param>
                         <param>$params</param>
@@ -652,7 +652,7 @@ declare %private function pm:declare-template-functions($odd as element(), $outp
     let $pos := if ($count > 1) then $count else ()
     return (
         <comment>generated template function for element spec: {$spec/@ident/string()}</comment>,
-<code>{``[declare %private function model:template-`{$spec/@ident/string()}``{$pos}`($config as map(*), $node as node()*, $params as map(*)) {
+<code>{``[declare %private function model:template-`{translate($spec/@ident/string(), ':', '_')}``{$pos}`($config as map(*), $node as node()*, $params as map(*)) {
     `{pm:template-body($tmpl, true())}`
 };
 ]``}</code>
