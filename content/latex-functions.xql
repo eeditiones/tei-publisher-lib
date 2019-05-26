@@ -161,13 +161,16 @@ declare function pmf:anchor($config as map(*), $node as node(), $class as xs:str
     "\label{" || $id || "}"
 };
 
-declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $link) {
-    if (starts-with($link, "#")) then
-        ("\hyperref[", pmf:escapeChars(substring-after($link, "#")), "]{", pmf:get-content($config, $node, $class, $content), "}")
-    else if ($content = $link) then
-        ("\url{", pmf:escapeChars($link), "}")
-    else
-        ("\href{", pmf:escapeChars($link), "}{", pmf:get-content($config, $node, $class, $content), "}")
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri,
+    $optional as map(*)) {
+    let $link := head(($uri, $optional?link))
+    return
+        if (starts-with($link, "#")) then
+            ("\hyperref[", pmf:escapeChars(substring-after($link, "#")), "]{", pmf:get-content($config, $node, $class, $content), "}")
+        else if ($content = $link) then
+            ("\url{", pmf:escapeChars($link), "}")
+        else
+            ("\href{", pmf:escapeChars($link), "}{", pmf:get-content($config, $node, $class, $content), "}")
 };
 
 declare function pmf:glyph($config as map(*), $node as node(), $class as xs:string+, $content as xs:anyURI?) {

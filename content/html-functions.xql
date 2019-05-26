@@ -124,8 +124,10 @@ declare function pmf:anchor($config as map(*), $node as node(), $class as xs:str
     <span id="{$id}"/>
 };
 
-declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $link, $target) {
-    <a href="{$link}" class="{$class}" target="{$target}">{pmf:apply-children($config, $node, $content)}</a>
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri, $target, $optional as map(*)) {
+    let $link := head(($uri, $optional?link))
+    return
+        <a href="{$link}" class="{$class}" target="{$target}">{pmf:apply-children($config, $node, $content)}</a>
 };
 
 declare function pmf:escapeChars($text as item()*) {

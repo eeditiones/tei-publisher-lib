@@ -229,24 +229,27 @@ declare function pmf:anchor($config as map(*), $node as node(), $class as xs:str
     <fo:inline id="{$id}"/>
 };
 
-declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $link) {
-    if (empty($link) or $link = "#") then
-        (: Make sure not to produce an empty destination, which would cause an FO error :)
-        $config?apply-children($config, $node, $content)
-    else if (starts-with($link, "#")) then
-        <fo:basic-link internal-destination="{substring-after($link, '#')}">
-        {
-            pmf:check-styles($config, $node, $class, ()),
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri,
+    $optional as map(*)) {
+    let $link := head(($uri, $optional?link))
+    return
+        if (empty($link) or $link = "#") then
+            (: Make sure not to produce an empty destination, which would cause an FO error :)
             $config?apply-children($config, $node, $content)
-        }
-        </fo:basic-link>
-    else
-        <fo:basic-link external-destination="{$link}">
-        {
-            pmf:check-styles($config, $node, $class, ()),
-            $config?apply-children($config, $node, $content)
-        }
-        </fo:basic-link>
+        else if (starts-with($link, "#")) then
+            <fo:basic-link internal-destination="{substring-after($link, '#')}">
+            {
+                pmf:check-styles($config, $node, $class, ()),
+                $config?apply-children($config, $node, $content)
+            }
+            </fo:basic-link>
+        else
+            <fo:basic-link external-destination="{$link}">
+            {
+                pmf:check-styles($config, $node, $class, ()),
+                $config?apply-children($config, $node, $content)
+            }
+            </fo:basic-link>
 };
 
 declare function pmf:escapeChars($text as item()) {
