@@ -4,6 +4,8 @@ module namespace docx="http://existsolutions.com/teipublisher/docx";
 
 declare namespace w="http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 declare namespace cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+declare namespace rel="http://schemas.openxmlformats.org/package/2006/relationships";
+declare namespace r="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
 import module namespace compression="http://exist-db.org/xquery/compression" at "java:org.exist.xquery.modules.compression.CompressionModule";
 
@@ -18,6 +20,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         let $endnotes := doc($unzipped || "/word/endnotes.xml")/w:endnotes
         let $footnotes := doc($unzipped || "/word/footnotes.xml")/w:footnotes
         let $properties := doc($unzipped || "/docProps/core.xml")/cp:coreProperties
+        let $rels := doc($unzipped || "/word/_rels/document.xml.rels")/rel:Relationships
         let $params := map {
             "styles": $styles,
             "pstyle": docx:pstyle($styles, ?),
@@ -25,6 +28,8 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "nstyle": docx:nstyle($numbering, ?),
             "endnote": docx:endnote($endnotes, ?),
             "footnote": docx:footnote($footnotes, ?),
+            "link": docx:external-link($rels, ?),
+            "rels": $rels,
             "properties": $properties
         }
         return
@@ -67,6 +72,10 @@ declare function docx:footnote($footnotes as element()*, $node as element()) {
     let $footnote := $footnotes/w:footnote[@w:id = $id]
     return
         $footnote/*
+};
+
+declare function docx:external-link($rels as element()*, $node as element()) {
+    $rels/rel:Relationship[@Id=$node/@r:id]
 };
 
 declare function docx:extract-styles($doc as element()?) {

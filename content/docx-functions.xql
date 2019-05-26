@@ -54,8 +54,11 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
     </list>
 };
 
-declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
+declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n,
+    $optional as map(*)) {
     <item xmlns="http://www.tei-c.org/ns/1.0">
+    {if ($optional?type) then attribute pmf:type { $optional?type } else ()}
+    {if ($n) then attribute n { $n } else ()}
     {pmf:apply-children($config, $node, $content)}
     </item>
 };
@@ -74,8 +77,8 @@ declare function pmf:anchor($config as map(*), $node as node(), $class as xs:str
     <anchor xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$id}"/>
 };
 
-declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $link, $target) {
-    <ref xmlns="http://www.tei-c.org/ns/1.0" target="{$link}">
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri, $target) {
+    <ref xmlns="http://www.tei-c.org/ns/1.0" target="{$uri}">
     {pmf:apply-children($config, $node, $content)}
     </ref>
 };
@@ -172,20 +175,36 @@ declare function pmf:title($config as map(*), $node as node(), $class as xs:stri
 };
 
 declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
-    ()
+    <table xmlns="http://www.tei-c.org/ns/1.0">
+    {pmf:apply-children($config, $node, $content)}
+    </table>
 };
 
 declare function pmf:row($config as map(*), $node as node(), $class as xs:string+, $content) {
-    ()
+    <row xmlns="http://www.tei-c.org/ns/1.0">
+    {pmf:apply-children($config, $node, $content)}
+    </row>
 };
 
-declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
-    ()
+declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content, $type,
+    $optional as map(*)) {
+    <cell xmlns="http://www.tei-c.org/ns/1.0">
+    {
+        if ($optional?cols) then
+            attribute cols { $optional?cols }
+        else
+            ()
+    }
+    {pmf:apply-children($config, $node, $content)}
+    </cell>
 };
 
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
-    ()
+    <choice xmlns="http://www.tei-c.org/ns/1.0">
+    {pmf:apply-children($config, $node, $default)}
+    {pmf:apply-children($config, $node, $alternate)}
+    </choice>
 };
 
 declare function pmf:match($config as map(*), $node as node(), $content) {
@@ -213,7 +232,7 @@ declare %private function pmf:fix-hierarchy($nodes as node()*) {
                     let $rest := tail($nodes) except $children
                     return (
                         <div xmlns="http://www.tei-c.org/ns/1.0">
-                        { $node, pmf:fix-hierarchy($children) }
+                        { pmf:copy-element($node), pmf:fix-hierarchy($children) }
                         </div>,
                         pmf:fix-hierarchy($rest)
                     )
@@ -226,6 +245,10 @@ declare %private function pmf:fix-hierarchy($nodes as node()*) {
                         return (
                             <list xmlns="http://www.tei-c.org/ns/1.0">
                             {
+                                if ($node/@pmf:type) then
+                                    attribute type { $node/@pmf:type }
+                                else
+                                    (),
                                 pmf:copy-element($node),
                                 pmf:fix-hierarchy($items)
                             }
@@ -258,7 +281,7 @@ declare %private function pmf:fix-hierarchy($nodes as node()*) {
 
 declare %private function pmf:copy-element($node as element()) {
     element { node-name($node)} {
-        $node/@*,
+        $node/@* except $node/@pmf:*,
         pmf:fix-hierarchy($node/node())
     }
 };
