@@ -222,7 +222,7 @@ declare %private function pmf:fix-hierarchy($nodes as node()*) {
         return
             typeswitch($node)
                 case element(tei:head) return
-                    let $myLevel := number($node/@pmf:level)
+                    let $myLevel := number(head(($node/@pmf:level, 0)))
                     let $nextHeading := $node/following-sibling::tei:head[@pmf:level <= $myLevel]
                     let $children :=
                         if ($nextHeading) then

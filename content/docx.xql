@@ -15,7 +15,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         let $tempColl := docx:mkcol-recursive($dataRoot, "temp")
         let $unzipped := docx:unzip($dataRoot || "/temp", $path)
         let $document := doc($unzipped || "/word/document.xml")
-        let $styles := docx:extract-styles(doc($unzipped || "/word/styles.xml")/w:styles)
+        let $styles := docx:extract-styles(util:expand(doc($unzipped || "/word/styles.xml")/w:styles))
         let $numbering := doc($unzipped || "/word/numbering.xml")/w:numbering
         let $endnotes := doc($unzipped || "/word/endnotes.xml")/w:endnotes
         let $footnotes := doc($unzipped || "/word/footnotes.xml")/w:footnotes
@@ -25,7 +25,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "styles": $styles,
             "pstyle": docx:pstyle($styles, ?),
             "cstyle": docx:cstyle($styles, ?),
-            "nstyle": docx:nstyle($numbering, ?),
+            "nstyle": docx:nstyle($numbering, $styles, ?),
             "endnote": docx:endnote($endnotes, ?),
             "footnote": docx:footnote($footnotes, ?),
             "link": docx:external-link($rels, ?),
@@ -39,20 +39,18 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
 };
 
 declare function docx:pstyle($styles as map(*), $node as element()) {
-    for $styleId in $node/w:pPr/w:pStyle/@w:val
-    return
-        $styles($styleId)
+    $styles?($node/w:pPr/w:pStyle/@w:val)
 };
 
 declare function docx:cstyle($styles as map(*), $node as element()) {
-    for $styleId in $node/w:rPr/w:rStyle/@w:val
-    return
-        $styles($styleId)
+    $styles?($node/w:rPr/w:rStyle/@w:val)
 };
 
-declare function docx:nstyle($numbering as element()*, $node as element()) {
+declare function docx:nstyle($numbering as element()*, $styles as map(*), $node as element()) {
     let $ref := $node/w:pPr/w:numPr
-    let $lvl := $ref/w:ilvl/@w:val
+    let $ref := if ($ref) then $ref else docx:pstyle($styles, $node)/w:pPr/w:numPr
+    where $ref
+    let $lvl := head(($ref/w:ilvl/@w:val, 0))
     let $num := $numbering/w:num[@w:numId = $ref/w:numId/@w:val]
     let $abstractNumRef := $num/w:abstractNumId/@w:val
     let $abstractNum := $numbering/w:abstractNum[@w:abstractNumId = $abstractNumRef]
