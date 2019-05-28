@@ -595,11 +595,12 @@ declare %private function pm:optional-parameters($signature as element(function)
             let $optional :=
                 for $param in $params
                 let $mapped := $functionArgs[@var = $param/@name]
+                let $value := if ($param/@value) then $param/@value else '()'
                 return
                     if ($mapped) then
                         ()
                     else
-                        ``["`{$param/@name}`": `{$param/@value}`]``
+                        ``["`{$param/@name}`": `{$value}`]``
             return
                 <param>map {{{string-join($optional, ", ")}}}</param>
         else
