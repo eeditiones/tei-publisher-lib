@@ -107,7 +107,9 @@ declare function pmf:figure($config as map(*), $node as node(), $class as xs:str
 
 declare function pmf:graphic($config as map(*), $node as node(), $class as xs:string+, $content, $url,
     $width, $height, $scale, $title) {
-    ()
+    <graphic xmlns="http://www.tei-c.org/ns/1.0" url="{$url}">
+    { if ($title) then <desc>{pmf:apply-children($config, $node, $title)}</desc> else () }
+    </graphic>
 };
 
 declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
