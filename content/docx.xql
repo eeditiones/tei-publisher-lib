@@ -32,8 +32,10 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "rels": $rels,
             "properties": $properties
         }
-        return
-            $transform($document, $params, $odd)
+        return (
+            $transform($document, $params, $odd),
+            xmldb:remove($unzipped)
+        )
     else
         ()
 };

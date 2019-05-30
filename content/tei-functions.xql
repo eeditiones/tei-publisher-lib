@@ -24,14 +24,17 @@ xquery version "3.1";
  :
  : @author Wolfgang Meier
  :)
-module namespace pmf="http://existsolutions.com/xquery/functions/docx";
+module namespace pmf="http://existsolutions.com/xquery/functions/tei";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
-declare variable $pmf:INLINE_ELEMENTS := ("hi", "supplied");
+declare variable $pmf:INLINE_ELEMENTS := (
+    "hi", "supplied", "persName", "placeName", "term"
+);
 
 declare function pmf:finish($config as map(*), $input as node()*) {
     pmf:fix-hierarchy($input)
+    (: $input :)
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -56,7 +59,7 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
 
 declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n,
     $optional as map(*)) {
-    <item xmlns="http://www.tei-c.org/ns/1.0">
+    <item xmlns="http://www.tei-c.org/ns/1.0" pmf:level="{$optional?level}">
     {if ($optional?type) then attribute pmf:type { $optional?type } else ()}
     {if ($n) then attribute n { $n } else ()}
     {pmf:apply-children($config, $node, $content)}
@@ -114,7 +117,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content, $optional as map(*)) {
-    if ($optional?tei_element) then
+    if (map:contains($optional, "tei_element")) then
         element { QName("http://www.tei-c.org/ns/1.0", $optional?tei_element) } {
             pmf:apply-children($config, $node, $content)
         }
@@ -237,30 +240,20 @@ declare %private function pmf:fix-hierarchy($nodes as node()*) {
                         pmf:fix-hierarchy($rest)
                     )
                 case element(tei:item) return
-                    if ($node/preceding-sibling::*[1][self::tei:item]) then (
-                        pmf:copy-element($node),
-                        pmf:fix-hierarchy(tail($nodes))
-                    ) else
-                        let $items := pmf:get-siblings($node/following-sibling::node(), (), "item")
-                        return (
-                            <list xmlns="http://www.tei-c.org/ns/1.0">
-                            {
-                                if ($node/@pmf:type) then
-                                    attribute type { $node/@pmf:type }
-                                else
-                                    (),
-                                pmf:copy-element($node),
-                                pmf:fix-hierarchy($items)
-                            }
-                            </list>,
-                            pmf:fix-hierarchy(tail($nodes) except $items)
+                    let $sibs := pmf:get-siblings($node/following-sibling::*, (), "item", $node/@pmf:level)
+                    return (
+                        <list xmlns="http://www.tei-c.org/ns/1.0">
+                        { pmf:wrap-list(($node, $sibs)) }
+                        </list>,
+                        pmf:fix-hierarchy(tail($nodes) except $sibs)
                     )
                 case element() return
                     if ($node/local-name() = $pmf:INLINE_ELEMENTS) then
-                        if ($node/preceding-sibling::*[1][node-name(.) = node-name($node)]) then (
+                        if ($node/preceding-sibling::node()[1][node-name(.) = node-name($node)]) then (
                             pmf:fix-hierarchy(($node/node(), tail($nodes)))
                         ) else
-                            let $items := pmf:get-siblings($node/following-sibling::node(), (), local-name($node))
+                            let $items :=
+                                pmf:get-siblings($node/following-sibling::node(), (), local-name($node), ())
                             return (
                                 element { node-name($node) } {
                                     $node/@*,
@@ -286,13 +279,50 @@ declare %private function pmf:copy-element($node as element()) {
     }
 };
 
+declare function pmf:wrap-list($items as element()*) {
+    if ($items) then
+        let $item := head($items)
+        return
+            let $nested :=
+                pmf:get-nested-items($item/following-sibling::*, (), $item/@pmf:level)
+            return (
+                <item xmlns="http://www.tei-c.org/ns/1.0">
+                    <p>{ $item/node() }</p>
+                    {
+                        if ($nested) then
+                            <list>
+                            { pmf:wrap-list($nested) }
+                            </list>
+                        else
+                            ()
+                    }
+                </item>,
+                pmf:wrap-list(tail($items) except $nested)
+            )
+    else
+        ()
+};
 
-declare %private function pmf:get-siblings($nodes as node()*, $siblings as node()*, $name as xs:string) {
+declare %private function pmf:get-siblings($nodes as node()*, $siblings as node()*, $name as xs:string,
+    $level as xs:int?) {
     if ($nodes) then
         let $node := head($nodes)
         return
-            if (local-name($node) = $name) then
-                pmf:get-siblings(tail($nodes), ($siblings, $node), $name)
+            if (local-name($node) = $name and (empty($level) or $node/@pmf:level >= $level)) then
+                pmf:get-siblings(tail($nodes), ($siblings, $node), $name, $level)
+            else
+                $siblings
+    else
+        $siblings
+};
+
+declare %private function pmf:get-nested-items($nodes as node()*, $siblings as node()*,
+    $level as xs:int) {
+    if ($nodes) then
+        let $node := head($nodes)
+        return
+            if ($node instance of element(tei:item) and $node/@pmf:level > $level) then
+                pmf:get-nested-items(tail($nodes), ($siblings, $node), $level)
             else
                 $siblings
     else

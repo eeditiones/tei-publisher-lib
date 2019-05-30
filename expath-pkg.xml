@@ -16,8 +16,8 @@
         <file>latex-functions.xql</file>
     </xquery>
     <xquery>
-        <namespace>http://existsolutions.com/xquery/functions/docx</namespace>
-        <file>docx-functions.xql</file>
+        <namespace>http://existsolutions.com/xquery/functions/tei</namespace>
+        <file>tei-functions.xql</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions/epub</namespace>
