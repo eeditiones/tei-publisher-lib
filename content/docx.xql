@@ -11,6 +11,11 @@ import module namespace compression="http://exist-db.org/xquery/compression" at 
 
 declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
     $odd as xs:string) {
+    docx:process($path, $dataRoot, $transform, $odd, ())
+};
+
+declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
+    $odd as xs:string, $mediaPath as xs:string?) {
     if (util:binary-doc-available($path)) then
         let $tempColl := docx:mkcol-recursive($dataRoot, "temp")
         let $unzipped := docx:unzip($dataRoot || "/temp", $path)
@@ -22,6 +27,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         let $properties := doc($unzipped || "/docProps/core.xml")/cp:coreProperties
         let $rels := doc($unzipped || "/word/_rels/document.xml.rels")/rel:Relationships
         let $params := map {
+            "filename": replace($path, "^.*?([^/]+)$", "$1"),
             "styles": $styles,
             "pstyle": docx:pstyle($styles, ?),
             "cstyle": docx:cstyle($styles, ?),
@@ -34,11 +40,27 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         }
         return (
             $transform($document, $params, $odd),
+            docx:copy-media($rels, $unzipped, $mediaPath),
             xmldb:remove($unzipped)
         )
     else
         ()
 };
+
+declare function docx:copy-media($rels as element(), $unzipped as xs:string, $mediaPath as xs:string?) {
+    if ($mediaPath) then
+        let $pathComponents := tokenize(replace($mediaPath, "^/db/(.*)$", "$1"), "/")
+        let $collection := docx:mkcol-recursive("/db", $pathComponents)
+        for $image in $rels/rel:Relationship[@Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"]
+        let $target := $image/@Target
+        let $relPath := replace($target, "^(.*?)/[^/]+$", "$1")
+        let $imgName := replace($target, "^.*?([^/]+)$", "$1")
+        return
+            xmldb:copy-resource($unzipped || "/word/" || $relPath, $imgName, $mediaPath, $imgName)[2]
+    else
+        ()
+};
+
 
 declare function docx:pstyle($styles as map(*), $node as element()) {
     $styles?($node/w:pPr/w:pStyle/@w:val)
