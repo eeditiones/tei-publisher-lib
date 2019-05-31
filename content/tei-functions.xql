@@ -33,7 +33,7 @@ declare variable $pmf:INLINE_ELEMENTS := (
 );
 
 declare function pmf:finish($config as map(*), $input as node()*) {
-    pmf:fix-hierarchy($input)
+    pmf:create-divisions(pmf:combine($input))
     (: $input :)
 };
 
@@ -221,78 +221,69 @@ declare function pmf:apply-children($config as map(*), $node as node(), $content
     $config?apply-children($config, $node, $content)
 };
 
-declare %private function pmf:fix-hierarchy($nodes as node()*) {
-    if ($nodes) then
-        let $node := head($nodes)
+declare %private function pmf:create-divisions($tei as element(tei:TEI)) {
+    let $body := $tei/tei:text/tei:body
+    let $firstHead := $body/tei:head[1]
+    return
+        if ($firstHead) then
+            <TEI xmlns="http://www.tei-c.org/ns/1.0">
+                { $tei/tei:teiHeader }
+                <text>
+                    <body>
+                    {
+                        $body/@*,
+                        $body/node()[. << $firstHead],
+                        pmf:division($firstHead)
+                    }
+                    </body>
+                </text>
+            </TEI>
+        else
+            $tei
+};
+
+
+declare %private function pmf:division($head as element()?) {
+    if ($head) then
+        let $myLevel := number(head(($head/@pmf:level, 0)))
+        let $nextHeading := $head/following-sibling::tei:head[1]
         return
-            typeswitch($node)
-                case element(tei:head) return
-                    let $myLevel := number(head(($node/@pmf:level, 0)))
-                    let $nextHeading := $node/following-sibling::tei:head[@pmf:level <= $myLevel]
-                    let $children :=
-                        if ($nextHeading) then
-                            $node/following-sibling::node()[. << $nextHeading]
-                        else
-                            $node/following-sibling::node()
-                    let $rest := tail($nodes) except $children
-                    return (
-                        <div xmlns="http://www.tei-c.org/ns/1.0">
-                        { pmf:copy-element($node), pmf:fix-hierarchy($children) }
-                        </div>,
-                        pmf:fix-hierarchy($rest)
-                    )
-                case element(tei:item) return
-                    let $sibs := pmf:get-siblings($node/following-sibling::*, (), "item", $node/@pmf:level)
-                    return (
-                        <list xmlns="http://www.tei-c.org/ns/1.0">
-                        { pmf:wrap-list(($node, $sibs)) }
-                        </list>,
-                        pmf:fix-hierarchy(tail($nodes) except $sibs)
-                    )
-                case element() return
-                    if ($node/local-name() = $pmf:INLINE_ELEMENTS) then
-                        if ($node/preceding-sibling::node()[1][node-name(.) = node-name($node)]) then (
-                            pmf:fix-hierarchy(($node/node(), tail($nodes)))
-                        ) else
-                            let $items :=
-                                pmf:get-siblings($node/following-sibling::node(), (), local-name($node), ())
-                            return (
-                                element { node-name($node) } {
-                                    $node/@*,
-                                    pmf:fix-hierarchy(($node/node(), $items))
-                                },
-                                pmf:fix-hierarchy(tail($nodes) except $items)
-                            )
-                    else (
-                        pmf:copy-element($node),
-                        pmf:fix-hierarchy(tail($nodes))
-                    )
-                default return (
-                    $node, pmf:fix-hierarchy(tail($nodes))
-                )
+            if ($nextHeading and $nextHeading/@pmf:level > $myLevel) then
+                <div xmlns="http://www.tei-c.org/ns/1.0">
+                {
+                    $head,
+                    $head/following-sibling::node()[. << $nextHeading],
+                    pmf:division($nextHeading)
+                }
+                </div>
+            else (
+                <div xmlns="http://www.tei-c.org/ns/1.0">
+                {
+                    $head,
+                    if ($nextHeading) then
+                        $head/following-sibling::node()[. << $nextHeading]
+                    else
+                        $head/following-sibling::node()
+                }
+                </div>,
+                pmf:division($nextHeading)
+            )
     else
         ()
 };
 
-declare %private function pmf:copy-element($node as element()) {
-    element { node-name($node)} {
-        $node/@* except $node/@pmf:*,
-        pmf:fix-hierarchy($node/node())
-    }
-};
-
-declare function pmf:wrap-list($items as element()*) {
+declare %private function pmf:wrap-list($items as element()*) {
     if ($items) then
         let $item := head($items)
         return
             let $nested :=
-                pmf:get-nested-items($item/following-sibling::*, (), $item/@pmf:level)
+                pmf:get-following-nested($item/following-sibling::*, (), $item/@pmf:level)
             return (
                 <item xmlns="http://www.tei-c.org/ns/1.0">
                     <p>{ $item/node() }</p>
                     {
                         if ($nested) then
-                            <list>
+                            <list type="{$nested[1]/@pmf:type}">
                             { pmf:wrap-list($nested) }
                             </list>
                         else
@@ -305,28 +296,62 @@ declare function pmf:wrap-list($items as element()*) {
         ()
 };
 
-declare %private function pmf:get-siblings($nodes as node()*, $siblings as node()*, $name as xs:string,
+declare %private function pmf:get-following($nodes as node()*, $name as xs:string, $siblings as node()*,
     $level as xs:int?) {
-    if ($nodes) then
-        let $node := head($nodes)
-        return
-            if (local-name($node) = $name and (empty($level) or $node/@pmf:level >= $level)) then
-                pmf:get-siblings(tail($nodes), ($siblings, $node), $name, $level)
-            else
-                $siblings
-    else
-        $siblings
+    let $node := head($nodes)
+    return
+        if (local-name($node) = $name and (empty($level) or $node/@pmf:level >= $level)) then
+            pmf:get-following(tail($nodes), $name, ($siblings, $node), $level)
+        else
+            $siblings
 };
 
-declare %private function pmf:get-nested-items($nodes as node()*, $siblings as node()*,
-    $level as xs:int) {
-    if ($nodes) then
-        let $node := head($nodes)
-        return
-            if ($node instance of element(tei:item) and $node/@pmf:level > $level) then
-                pmf:get-nested-items(tail($nodes), ($siblings, $node), $level)
-            else
-                $siblings
-    else
-        $siblings
+declare %private function pmf:get-following-nested($nodes as node()*, $siblings as node()*,
+    $level as xs:int?) {
+    let $node := head($nodes)
+    return
+        if ($node instance of element(tei:item) and (empty($level) or $node/@pmf:level > $level)) then
+            pmf:get-following-nested(tail($nodes), ($siblings, $node), $level)
+        else
+            $siblings
+};
+
+declare %private function pmf:combine($nodes as node()*) {
+    for $node in $nodes
+    return
+        typeswitch($node)
+            case element(tei:item) return
+                if ($node/preceding-sibling::node()[1][self::tei:item]) then
+                    ()
+                else
+                    let $sibs := pmf:get-following($node/following-sibling::*, "item", (), $node/@pmf:level)
+                    return (
+                        <list xmlns="http://www.tei-c.org/ns/1.0" type="{$sibs[1]/@pmf:type}">
+                        { pmf:wrap-list(($node, $sibs)) }
+                        </list>
+                    )
+            case element() return
+                if (local-name($node) = $pmf:INLINE_ELEMENTS) then
+                    if ($node/preceding-sibling::node()[1][local-name(.) = local-name($node)]) then
+                        ()
+                    else
+                        let $following := pmf:get-following($node/following-sibling::node(), local-name($node), (), ())
+                        return
+                            if ($following) then
+                                element { node-name($node) } {
+                                    $node/@*,
+                                    pmf:combine($node/node()),
+                                    pmf:combine($following/node())
+                                }
+                            else
+                                element { node-name($node) } {
+                                    $node/@*,
+                                    pmf:combine($node/node())
+                                }
+                else
+                    element { node-name($node) } {
+                        $node/@*,
+                        pmf:combine($node/node())
+                    }
+            default return $node
 };
