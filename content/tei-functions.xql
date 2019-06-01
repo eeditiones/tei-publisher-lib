@@ -250,21 +250,31 @@ declare %private function pmf:division($head as element()?) {
         return
             if ($nextHeading and $nextHeading/@pmf:level > $myLevel) then
                 <div xmlns="http://www.tei-c.org/ns/1.0">
-                {
-                    $head,
-                    $head/following-sibling::node()[. << $nextHeading],
-                    pmf:division($nextHeading)
-                }
+                    <head>
+                    {
+                        $head/@* except $head/@pmf:level,
+                        $head/node()
+                    }
+                    </head>
+                    {
+                        $head/following-sibling::node()[. << $nextHeading],
+                        pmf:division($nextHeading)
+                    }
                 </div>
             else (
                 <div xmlns="http://www.tei-c.org/ns/1.0">
-                {
-                    $head,
-                    if ($nextHeading) then
-                        $head/following-sibling::node()[. << $nextHeading]
-                    else
-                        $head/following-sibling::node()
-                }
+                    <head>
+                    {
+                        $head/@* except $head/@pmf:level,
+                        $head/node()
+                    }
+                    </head>
+                    {
+                        if ($nextHeading) then
+                            $head/following-sibling::node()[. << $nextHeading]
+                        else
+                            $head/following-sibling::node()
+                    }
                 </div>,
                 pmf:division($nextHeading)
             )
