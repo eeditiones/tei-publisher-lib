@@ -51,7 +51,9 @@ declare function docx:copy-media($rels as element(), $unzipped as xs:string, $me
     if ($mediaPath) then
         let $pathComponents := tokenize(replace($mediaPath, "^/db/(.*)$", "$1"), "/")
         let $collection := docx:mkcol-recursive("/db", $pathComponents)
-        for $image in $rels/rel:Relationship[@Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"]
+        for $image in $rels/rel:Relationship
+            [@Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"]
+            [not(@TargetMode)]
         let $target := $image/@Target
         let $relPath := replace($target, "^(.*?)/[^/]+$", "$1")
         let $imgName := replace($target, "^.*?([^/]+)$", "$1")
