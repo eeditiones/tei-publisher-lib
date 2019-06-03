@@ -293,7 +293,8 @@ declare %private function pmf:wrap-list($items as element()*) {
                     <p>{ $item/node() }</p>
                     {
                         if ($nested) then
-                            <list type="{$nested[1]/@pmf:type}">
+                            <list>
+                            { if ($nested[1]/@pmf:type) then attribute type { $nested[1]/@pmf:type } else () }
                             { pmf:wrap-list($nested) }
                             </list>
                         else
@@ -307,20 +308,20 @@ declare %private function pmf:wrap-list($items as element()*) {
 };
 
 declare %private function pmf:get-following($nodes as node()*, $name as xs:string, $siblings as node()*,
-    $level as xs:int?) {
+    $level as item()?) {
     let $node := head($nodes)
     return
-        if (local-name($node) = $name and (empty($level) or $node/@pmf:level >= $level)) then
+        if (local-name($node) = $name and (empty($level) or number($node/@pmf:level) >= number($level))) then
             pmf:get-following(tail($nodes), $name, ($siblings, $node), $level)
         else
             $siblings
 };
 
 declare %private function pmf:get-following-nested($nodes as node()*, $siblings as node()*,
-    $level as xs:int?) {
+    $level as item()?) {
     let $node := head($nodes)
     return
-        if ($node instance of element(tei:item) and (empty($level) or $node/@pmf:level > $level)) then
+        if ($node instance of element(tei:item) and (empty($level) or number($node/@pmf:level) > number($level))) then
             pmf:get-following-nested(tail($nodes), ($siblings, $node), $level)
         else
             $siblings
@@ -336,7 +337,8 @@ declare %private function pmf:combine($nodes as node()*) {
                 else
                     let $sibs := pmf:get-following($node/following-sibling::*, "item", (), $node/@pmf:level)
                     return (
-                        <list xmlns="http://www.tei-c.org/ns/1.0" type="{$sibs[1]/@pmf:type}">
+                        <list xmlns="http://www.tei-c.org/ns/1.0">
+                        { if ($node/@pmf:type) then attribute type { $node/@pmf:type } else () }
                         { pmf:wrap-list(($node, $sibs)) }
                         </list>
                     )
