@@ -68,9 +68,9 @@ declare function css:generate-css($root as document-node(), $output as xs:string
                 $spec/@ident/string()
         let $class :=
             if ($rend/@scope) then
-                $className || ":" || $rend/@scope
+                translate($className, ":", "_") || ":" || $rend/@scope
             else
-                $className
+                translate($className, ":", "_")
         return
             "&#10;.tei-" || $class || " { " ||
             normalize-space($rend) || " }"
