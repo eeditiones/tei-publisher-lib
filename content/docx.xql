@@ -11,11 +11,11 @@ import module namespace compression="http://exist-db.org/xquery/compression" at 
 
 declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
     $odd as xs:string) {
-    docx:process($path, $dataRoot, $transform, $odd, ())
+    docx:process($path, $dataRoot, $transform, ())
 };
 
 declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
-    $odd as xs:string, $mediaPath as xs:string?) {
+    $mediaPath as xs:string?) {
     if (util:binary-doc-available($path)) then
         let $tempColl := docx:mkcol-recursive($dataRoot, "temp")
         let $unzipped := docx:unzip($dataRoot || "/temp", $path)
@@ -39,7 +39,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "properties": $properties
         }
         return (
-            $transform($document, $params, $odd),
+            $transform($document, $params),
             docx:copy-media($rels, $unzipped, $mediaPath),
             xmldb:remove($unzipped)
         )
