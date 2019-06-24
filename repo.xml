@@ -11,7 +11,16 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
-	<change version="2.7.0">
+        <change version="2.8.0">
+             <ul xmlns="http://www.w3.org/1999/xhtml">
+                 <li>Update for compatibility with eXist 5.0</li>
+                 <li>Improve naming of template functions to avoid wrong calls</li>
+                 <li>Add target parameter for behaviour link</li>
+                 <li>Add TEI output mode and module for transforming docx to TEI</li>
+                 <li>Rename link parameter for behaviour link to "uri" for spec compliance; support old "link" as fallback</li>
+             </ul>
+         </change>
+       <change version="2.7.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Fix loading of external CSS from relative path</li>
                 <li>HTML output: if a label is defined for a note or list item, output it directly. Adds "n" parameter to listItem.</li>
