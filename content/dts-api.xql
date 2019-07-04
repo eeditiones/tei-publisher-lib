@@ -26,6 +26,7 @@ declare option output:method "json";
 declare option output:media-type "application/ld+json";
 
 declare function dts:process($config as map(*)) {
+    response:set-header("Access-Control-Allow-Origin", "*"),
     let $endpoint := request:get-parameter("endpoint", ())
     return
         if (not($endpoint)) then
