@@ -51,4 +51,8 @@
         <namespace>http://existsolutions.com/teipublisher/docx</namespace>
         <file>docx.xql</file>
     </xquery>
+    <xquery>
+        <namespace>https://w3id.org/dts/api#</namespace>
+        <file>dts-api.xql</file>
+    </xquery>
 </package>
