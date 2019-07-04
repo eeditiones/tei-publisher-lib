@@ -34,7 +34,7 @@ declare function dts:process($config as map(*)) {
         else
             switch ($endpoint)
                 case "documents" return
-                    dts:documents()
+                    dts:documents($config)
                 default return
                     dts:collection($config)
 };
@@ -97,11 +97,28 @@ declare function dts:get-members($config as map(*), $collectionInfo as map(*), $
         ))
 };
 
-declare function dts:documents() {
+declare function dts:documents($config as map(*)) {
     let $id := request:get-parameter("id", ())
-    return (
-        util:declare-option("output:method", "xml"),
-        util:declare-option("output:media-type", "application/tei+xml"),
-        doc($id)
-    )
+    let $doc := doc($id)
+    return
+        if ($doc) then (
+            util:declare-option("output:method", "xml"),
+            util:declare-option("output:media-type", "application/tei+xml"),
+            dts:check-pi($config, $doc)
+        ) else
+            response:set-status-code(404)
+};
+
+declare function dts:check-pi($config as map(*), $doc as document-node()) {
+    let $pi := $doc/processing-instruction("teipublisher")
+    return
+        if ($pi) then
+            $doc
+        else
+            document {
+                processing-instruction teipublisher {
+                    ``[odd="`{$config?default-odd}`" view="`{$config?view}`" template="`{$config?template}`"]``
+                },
+                $doc/node()
+            }
 };
