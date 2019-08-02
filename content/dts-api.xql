@@ -61,40 +61,67 @@ declare function dts:base-endpoint($config as map(*)) {
 };
 
 declare function dts:collection($config as map(*)) {
-    let $id := request:get-parameter("id", "default")
+    let $id := request:get-parameter("id", ())
     let $page := number(request:get-parameter("page", 1))
-    let $collectionInfo := $config?dts-collections($id)
-    let $resources := $collectionInfo?members()
-    let $count := count($resources)
-    let $paged := subsequence($resources, ($page - 1) * $config?dts-page-size + 1, $config?dts-page-size)
-    let $members := dts:get-members($config, $collectionInfo, $paged)
+    let $collectionInfo :=
+        if ($id) then
+            dts:collection-by-id($config?dts-collections, $id)
+        else
+            $config?dts-collections
     return
-        map {
-            "@context": map {
-                "@vocab": "https://www.w3.org/ns/hydra/core#",
-                "dc": "http://purl.org/dc/terms/",
-                "dts": "https://w3id.org/dts/api#"
-            },
-            "@type": "Collection",
-            "title": $collectionInfo?title,
-            "totalItems": $count,
-            "member": array { $members }
-        }
+        if (exists($collectionInfo)) then
+            let $resources := if (map:contains($collectionInfo, "members")) then $collectionInfo?members() else ()
+            let $count := count($resources)
+            let $paged := subsequence($resources, ($page - 1) * $config?dts-page-size + 1, $config?dts-page-size)
+            let $memberResources := dts:get-members($config, $collectionInfo, $paged)
+            let $memberCollections := dts:get-members($config, $collectionInfo, $collectionInfo?memberCollections)
+            return
+                map {
+                    "@context": map {
+                        "@vocab": "https://www.w3.org/ns/hydra/core#",
+                        "dc": "http://purl.org/dc/terms/",
+                        "dts": "https://w3id.org/dts/api#"
+                    },
+                    "@type": "Collection",
+                    "title": $collectionInfo?title,
+                    "totalItems": $count,
+                    "member": array { $memberResources, $memberCollections }
+                }
+        else
+            response:set-status-code(404)
 };
 
-declare function dts:get-members($config as map(*), $collectionInfo as map(*), $resources as node()*) {
+declare function dts:collection-by-id($collectionInfo as map(*), $id as xs:string) {
+    if ($collectionInfo?id = $id) then
+        $collectionInfo
+    else
+        for $member in $collectionInfo?memberCollections
+        return
+            dts:collection-by-id($member, $id)
+};
+
+declare function dts:get-members($config as map(*), $collectionInfo as map(*), $resources as item()*) {
     for $resource in $resources
-    let $id := util:document-name($resource)
     return
-        map:merge((
-            map {
-                "@id": $id,
-                "title": $id,
-                "@type": "Resource",
-                "dts:passage": dts:base-path($config) || "/documents?id=" || $collectionInfo?path || "/" || $id
-            },
-            $collectionInfo?metadata(root($resource))
-        ))
+        typeswitch($resource)
+            case map(*) return
+                map {
+                    "@id": $resource?id,
+                    "title": $resource?title,
+                    "@type": "Collection"
+                }
+            default return
+                let $id := util:document-name($resource)
+                return
+                    map:merge((
+                        map {
+                            "@id": $id,
+                            "title": $id,
+                            "@type": "Resource",
+                            "dts:passage": dts:base-path($config) || "/documents?id=" || $collectionInfo?path || "/" || $id
+                        },
+                        $collectionInfo?metadata(root($resource))
+                    ))
 };
 
 declare function dts:documents($config as map(*)) {
