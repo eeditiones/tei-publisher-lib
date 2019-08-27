@@ -9,6 +9,20 @@ declare namespace r="http://schemas.openxmlformats.org/officeDocument/2006/relat
 
 import module namespace compression="http://exist-db.org/xquery/compression" at "java:org.exist.xquery.modules.compression.CompressionModule";
 
+(: Handle different copy functions between eXist 4.x.x and 5.x.x :)
+declare variable $docx:copy :=
+    let $copy4 := function-lookup(xs:QName("xmldb:copy"), 3)
+    return
+        if (exists($copy4)) then
+            $copy4
+        else
+            let $copy5 := function-lookup(xs:QName("xmldb:copy-resource"), 4)
+            return
+                function ($source, $target, $resource) {
+                    $copy5($source, $resource, $target, $resource)
+                }
+;
+
 declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
     $odd as xs:string) {
     docx:process($path, $dataRoot, $transform, ())
@@ -58,7 +72,7 @@ declare function docx:copy-media($rels as element(), $unzipped as xs:string, $me
         let $relPath := replace($target, "^(.*?)/[^/]+$", "$1")
         let $imgName := replace($target, "^.*?([^/]+)$", "$1")
         return
-            xmldb:copy-resource($unzipped || "/word/" || $relPath, $imgName, $mediaPath, $imgName)[2]
+            $docx:copy($unzipped || "/word/" || $relPath, $imgName, $mediaPath)[2]
     else
         ()
 };
