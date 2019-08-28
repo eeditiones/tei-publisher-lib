@@ -72,7 +72,7 @@ declare function docx:copy-media($rels as element(), $unzipped as xs:string, $me
         let $relPath := replace($target, "^(.*?)/[^/]+$", "$1")
         let $imgName := replace($target, "^.*?([^/]+)$", "$1")
         return
-            $docx:copy($unzipped || "/word/" || $relPath, $imgName, $mediaPath)[2]
+            $docx:copy($unzipped || "/word/" || $relPath, $mediaPath, $imgName)[2]
     else
         ()
 };
