@@ -11,6 +11,20 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="3.0.0">
+             <ul xmlns="http://www.w3.org/1999/xhtml">
+                 <li>
+                     <strong>Update for backward compatibility of older eXist versions:</strong><br/>
+                     This library will be supported by eXist v5.x.x and lower now.
+                 </li>
+                 <li>
+                     <strong>Increment release number:</strong><br/>
+                     Last release v2.8.0 introduced breaking changes by using new functions for the `docx` module that are only supported by eXist 5.x.x versions and thus introduced a dependency to eXist 5.x.x. <br/>
+                     This release resolves the dependency by handling both new and deprecated functions.<br/>
+                     Therefore, this release indicates a major change by incrementing the version number according to the semver pattern.
+                 </li>
+             </ul>
+         </change>
         <change version="2.8.0">
              <ul xmlns="http://www.w3.org/1999/xhtml">
                  <li>Update for compatibility with eXist 5.0</li>

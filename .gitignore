@@ -1,2 +1,5 @@
 # artifacts
 build/*
+.*
+!.gitignore
+!.existdb.json
