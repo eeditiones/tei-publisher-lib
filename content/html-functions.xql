@@ -32,10 +32,13 @@ import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
 import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counters";
 
 declare variable $pmf:NOTE_COUNTER_ID := "notes-" || util:uuid();
+declare variable $pmf:ALTERNATE_COUNTER_ID := "alt-" || util:uuid();
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
     let $styles := css:rendition-styles-html($config, $node)
     let $counter := counters:create($pmf:NOTE_COUNTER_ID)
+    let $counter := counters:create($pmf:ALTERNATE_COUNTER_ID)
+
     return
         if ($styles != "") then
             <style type="text/css">{ $styles }</style>
@@ -45,6 +48,8 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
 
 declare function pmf:finish($config as map(*), $input as node()*) {
     let $destroy := counters:destroy($pmf:NOTE_COUNTER_ID)
+    let $destroy := counters:destroy($pmf:ALTERNATE_COUNTER_ID)
+
     return
         $input
 };
@@ -320,12 +325,9 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
     $alternate) {
     if ($config?parameters?webcomponents) then
-        let $nodeId :=
-                if ($node/@exist:id) then
-                    $node/@exist:id
-                else
-                    util:node-id($node)
-         let $id := translate($nodeId, "-.", "__")
+
+      let $id := counters:increment($pmf:ALTERNATE_COUNTER_ID)
+
          return
         (<span class="alternate {$class}"  id="altref_{$id}">
             <span class="default">{pmf:apply-children($config, $node, $default)}</span>
