@@ -327,16 +327,14 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
     if ($config?parameters?webcomponents) then
 
       let $id := counters:increment($pmf:ALTERNATE_COUNTER_ID)
-
-         return
+      return
         <pb-popover class="alternate {$class}"  id="altref_{$id}">
-          {map:for-each($optional, function($key, $value) {
-              typeswitch($value)
-                  case xs:boolean return
-                      if ($value) then attribute { $key } { $key } else ()
-                  default return
-                      attribute { $key } { $value }
-          })}
+            {
+                if (boolean($optional?persistent)) then
+                    attribute persistent { "persistent" }
+                else
+                    ()
+            }
             <span class="default"> {pmf:apply-children($config, $node, $default)}</span>
             <span class="alternate" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
         </pb-popover>
