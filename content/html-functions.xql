@@ -323,19 +323,26 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
-    $alternate) {
+    $alternate, $optional as map(*)) {
     if ($config?parameters?webcomponents) then
 
       let $id := counters:increment($pmf:ALTERNATE_COUNTER_ID)
 
          return
-        (<span class="alternate {$class}"  id="altref_{$id}">
-            <span class="default">{pmf:apply-children($config, $node, $default)}</span>
-        </span>,
-        <paper-tooltip for="altref_{$id}" position="bottom" fit-to-visible-bounds="fit-to-visible-bounds">{pmf:apply-children($config, $node, $alternate)}</paper-tooltip>
-        )
+        <pb-popover class="alternate {$class}"  id="altref_{$id}">
+          {map:for-each($optional, function($key, $value) {
+              typeswitch($value)
+                  case xs:boolean return
+                      if ($value) then attribute { $key } { $key } else ()
+                  default return
+                      attribute { $key } { $value }
+          })}
+            <span class="default"> {pmf:apply-children($config, $node, $default)}</span>
+            <span class="alternate" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
+        </pb-popover>
+
     else
-        <span class="alternate {$class}">
+        <span class="alternate aa {$class}">
             <span>{pmf:apply-children($config, $node, $default)}</span>
             <span class="altcontent">{pmf:apply-children($config, $node, $alternate)}</span>
         </span>
