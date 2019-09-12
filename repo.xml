@@ -11,6 +11,13 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="2.8.2">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>add optional parameter 'persistent' to alternate behaviour: if true, popups will appear on click
+                and stay until dismissed</li>
+                <li>use internal numbering for alternate IDs to avoid conflicts</li>
+            </ul>
+        </change>
         <change version="2.8.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Update backward compatibility for older eXist versions: Last release v2.8.0 introduced breaking changes by using new functions for the `docx` module that are only supported by eXist 5.x.x versions and thus introduced a dependency to eXist 5.x.x. This release resolves the dependency by handling both new and deprecated functions.</li>
