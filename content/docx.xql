@@ -33,7 +33,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
     if (util:binary-doc-available($path)) then
         let $tempColl := docx:mkcol-recursive($dataRoot, "temp")
         let $unzipped := docx:unzip($dataRoot || "/temp", $path)
-        let $document := doc($unzipped || "/word/document.xml")
+        let $document := docx:normalize-ranges(doc($unzipped || "/word/document.xml"))
         let $styles := docx:extract-styles(util:expand(doc($unzipped || "/word/styles.xml")/w:styles))
         let $numbering := doc($unzipped || "/word/numbering.xml")/w:numbering
         let $endnotes := doc($unzipped || "/word/endnotes.xml")/w:endnotes
@@ -168,4 +168,53 @@ declare %private function docx:mkcol-recursive($collection, $components) {
         )
     else
         $collection
+};
+
+(:~
+ : Normalize ranges of w:r using same style. Word tends to split ranges at
+ : random points, so to simplify processing we're trying to collect all ranges referencing the same
+ : character style into a single w:r element.
+ :)
+declare %private function docx:normalize-ranges($nodes as node()*) {
+    for $node in $nodes
+    return
+        typeswitch($node)
+            case document-node() return
+                document {
+                    docx:normalize-ranges($node/node())
+                }
+            case element(w:r) return
+                let $style := $node/w:rPr/w:rStyle/@w:val
+                return
+                    if (exists($style)) then
+                        if ($node/preceding-sibling::w:r[1]/w:rPr/w:rStyle/@w:val = $style) then
+                            ()
+                        else
+                            let $siblings := docx:get-range-siblings($node, $style)
+                            return
+                                if (count($siblings) = 1) then
+                                    $node
+                                else
+                                    <w:r>
+                                    {
+                                        $node/w:rPr,
+                                        <w:t xml:space="preserve">{ string-join(for $sib in $siblings return $sib/w:t/string()) }</w:t>
+                                    }
+                                    </w:r>
+                    else
+                        $node
+            case element() return
+                element { node-name($node) } {
+                    $node/@*,
+                    docx:normalize-ranges($node/node())
+                }
+            default return
+                $node
+};
+
+declare %private function docx:get-range-siblings($node as node()?, $style as xs:string?) {
+    if (exists($node) and exists($style) and $node/w:rPr/w:rStyle/@w:val = $style) then
+        ($node, docx:get-range-siblings($node/following-sibling::w:r[1], $style))
+    else
+        ()
 };
