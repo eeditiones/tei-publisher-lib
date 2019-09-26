@@ -36,8 +36,8 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         let $document := docx:normalize-ranges(doc($unzipped || "/word/document.xml"))
         let $styles := docx:extract-styles(util:expand(doc($unzipped || "/word/styles.xml")/w:styles))
         let $numbering := doc($unzipped || "/word/numbering.xml")/w:numbering
-        let $endnotes := doc($unzipped || "/word/endnotes.xml")/w:endnotes
-        let $footnotes := doc($unzipped || "/word/footnotes.xml")/w:footnotes
+        let $endnotes := docx:normalize-ranges(doc($unzipped || "/word/endnotes.xml")/w:endnotes)
+        let $footnotes := docx:normalize-ranges(doc($unzipped || "/word/footnotes.xml")/w:footnotes)
         let $properties := doc($unzipped || "/docProps/core.xml")/cp:coreProperties
         let $rels := doc($unzipped || "/word/_rels/document.xml.rels")/rel:Relationships
         let $params := map {
@@ -187,9 +187,11 @@ declare %private function docx:normalize-ranges($nodes as node()*) {
                 let $style := $node/w:rPr/w:rStyle/@w:val
                 return
                     if (exists($style)) then
+                        (: ignore preceding ranges with same style :)
                         if ($node/preceding-sibling::w:r[1]/w:rPr/w:rStyle/@w:val = $style) then
                             ()
                         else
+                            (: merge subsequent ranges with same style into current one :)
                             let $siblings := docx:get-range-siblings($node, $style)
                             return
                                 if (count($siblings) = 1) then
@@ -203,6 +205,14 @@ declare %private function docx:normalize-ranges($nodes as node()*) {
                                     </w:r>
                     else
                         $node
+            case element(w:p) return
+                (: remove empty paragraphs :)
+                if (empty($node/w:r)) then
+                    ()
+                else
+                    <w:p>
+                    { docx:normalize-ranges($node/node()) }
+                    </w:p>
             case element() return
                 element { node-name($node) } {
                     $node/@*,
