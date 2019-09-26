@@ -121,10 +121,25 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content, $optional as map(*)) {
     if (map:contains($optional, "tei_element")) then
         element { QName("http://www.tei-c.org/ns/1.0", $optional?tei_element) } {
+            pmf:copy-attributes($optional?tei_attributes),
             pmf:apply-children($config, $node, $content)
         }
     else
         pmf:apply-children($config, $node, $content)
+};
+
+declare %private function pmf:copy-attributes($args as xs:string*) {
+    if (exists($args)) then
+        for $arg in $args
+        let $ana := analyze-string($arg, '^(.*?)\s*=\s*(.*)\s*$')
+        return
+            try {
+                attribute { $ana//fn:group[1]/string() } { $ana//fn:group[2]/string() }
+            } catch * {
+                ()
+            }
+    else
+        ()
 };
 
 declare function pmf:text($config as map(*), $node as node(), $class as xs:string+, $content) {
