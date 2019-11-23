@@ -187,11 +187,11 @@ declare %private function docx:normalize-ranges($nodes as node()*) {
                 let $style := $node/w:rPr/w:rStyle/@w:val
                 return
                     if (exists($style)) then
-                        (: ignore preceding ranges with same style :)
+                        (: preceding ranges with same style are nested, but style is stripped :)
                         if ($node/preceding-sibling::w:r[1]/w:rPr/w:rStyle/@w:val = $style) then
                             ()
                         else
-                            (: merge subsequent ranges with same style into current one :)
+                            (: nest subsequent ranges with same style into current one :)
                             let $siblings := docx:get-range-siblings($node, $style)
                             return
                                 if (count($siblings) = 1) then
@@ -200,7 +200,14 @@ declare %private function docx:normalize-ranges($nodes as node()*) {
                                     <w:r>
                                     {
                                         $node/w:rPr,
-                                        <w:t xml:space="preserve">{ string-join(for $sib in $siblings return $sib/w:t/string()) }</w:t>
+                                        for $sibling in $siblings
+                                        return
+                                            <w:r>
+                                                <w:rPr>
+                                                { $sibling/w:rPr/* except $sibling/w:rPr/w:rStyle }
+                                                </w:rPr>
+                                                { $sibling/* except $sibling/w:rPr }
+                                            </w:r>
                                     }
                                     </w:r>
                     else
