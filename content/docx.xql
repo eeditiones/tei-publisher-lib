@@ -83,7 +83,12 @@ declare function docx:pstyle($styles as map(*), $node as element()) {
 };
 
 declare function docx:cstyle($styles as map(*), $node as element()) {
-    $styles?($node/w:rPr/w:rStyle/@w:val)
+    let $style := $node//w:rStyle/@w:val
+    return
+        if ($style) then
+            $styles($style)
+        else
+            ()
 };
 
 declare function docx:nstyle($numbering as element()*, $styles as map(*), $node as element()) {
