@@ -38,6 +38,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         let $numbering := doc($unzipped || "/word/numbering.xml")/w:numbering
         let $endnotes := docx:normalize-ranges(doc($unzipped || "/word/endnotes.xml")/w:endnotes)
         let $footnotes := docx:normalize-ranges(doc($unzipped || "/word/footnotes.xml")/w:footnotes)
+        let $comments := docx:normalize-ranges(doc($unzipped || "/word/comments.xml")/w:comments)
         let $properties := doc($unzipped || "/docProps/core.xml")/cp:coreProperties
         let $rels := doc($unzipped || "/word/_rels/document.xml.rels")/rel:Relationships
         let $params := map {
@@ -48,6 +49,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "nstyle": docx:nstyle($numbering, $styles, ?),
             "endnote": docx:endnote($endnotes, ?),
             "footnote": docx:footnote($footnotes, ?),
+            "comment": docx:comment($comments, ?),
             "link": docx:external-link($rels, ?),
             "rels": $rels,
             "properties": $properties
@@ -115,6 +117,12 @@ declare function docx:footnote($footnotes as element()*, $node as element()) {
     let $footnote := $footnotes/w:footnote[@w:id = $id]
     return
         $footnote/*
+};
+
+declare function docx:comment($comments as element()*, $node as element()) {
+    let $id := $node/@w:id
+    return
+        $comments/w:comment[@w:id = $id]/*
 };
 
 declare function docx:external-link($rels as element()*, $node as element()) {

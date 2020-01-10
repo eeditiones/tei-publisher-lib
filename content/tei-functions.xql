@@ -76,8 +76,12 @@ declare function pmf:section($config as map(*), $node as node(), $class as xs:st
     pmf:block($config, $node, $class, $content)
 };
 
-declare function pmf:anchor($config as map(*), $node as node(), $class as xs:string+, $content, $id as item()*) {
-    <anchor xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$id}"/>
+declare function pmf:anchor($config as map(*), $node as node(), $class as xs:string+, $content, $id as item()*, $optional as map(*)) {
+    <anchor xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$id}">
+    { 
+        pmf:apply-optional-attributes($optional)
+    }
+    </anchor>
 };
 
 declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri, $target) {
@@ -112,10 +116,20 @@ declare function pmf:graphic($config as map(*), $node as node(), $class as xs:st
     </graphic>
 };
 
-declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
+declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label, $optional as map(*)) {
     <note xmlns="http://www.tei-c.org/ns/1.0" place="{$place}">
+    { if ($label) then attribute n { $label } else () }
+    { 
+        pmf:apply-optional-attributes($optional)
+    }
     { pmf:apply-children($config, $node, $content) }
     </note>
+};
+
+declare %private function pmf:apply-optional-attributes($optional as map(*)) {
+    map:for-each($optional, function($key, $value) {
+        attribute { $key } { $value }
+    })
 };
 
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content, $optional as map(*)) {
