@@ -11,6 +11,11 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="2.8.3">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Enhanced docx to TEI import</li>
+            </ul>
+        </change>
         <change version="2.8.2">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>add optional parameter 'persistent' to alternate behaviour: if true, popups will appear on click
