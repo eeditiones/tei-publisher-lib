@@ -198,18 +198,29 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 else
                     counters:increment($pmf:NOTE_COUNTER_ID)
             let $content := $config?apply-children($config, $node, $content)
-            return (
-                <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
-                    <a class="note" rel="footnote" href="#fn_{$id}">
-                    {
-                        if ($nr instance of attribute()) then
-                            $nr/string()
-                        else
-                            $nr
+            let $wcVersion :=
+                if ($config?parameters?webcomponents) then
+                    try {
+                        xs:int($config?parameters?webcomponents)
+                    } catch * {
+                        5
                     }
-                    </a>
-
-                </span>,
+                else
+                    0
+            let $fnNumber :=
+                if ($nr instance of attribute()) then
+                    $nr/string()
+                else
+                    $nr
+            return (
+                if ($wcVersion > 5) then
+                    <pb-popover id="fnref_{$id}" class="note {$class}" href="#fn_{$id}">{$fnNumber}<span slot="alternate">{$content}</span></pb-popover>
+                else
+                    <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
+                        <a class="note" rel="footnote" href="#fn_{$id}">
+                        { $fnNumber }
+                        </a>
+                    </span>,
                 <dl class="footnote" id="fn_{$id}">
                     <dt class="fn-number">{ if ($nr instance of attribute()) then $nr/string() else $nr }</dt>
                     <dd class="fn-content">
@@ -217,13 +228,12 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                         <a class="fn-back" href="#fnref_{$id}">↩</a>
                     </dd>
                 </dl>,
-                    if ($config?parameters?webcomponents) then
-                        <paper-tooltip position="top" for="fnref_{$id}" fit-to-visible-bounds="fit-to-visible-bounds">
-                            {$content}
-                        </paper-tooltip>
-                    else
-                        ()
-
+                if ($wcVersion = 5) then
+                    <paper-tooltip position="top" for="fnref_{$id}" fit-to-visible-bounds="fit-to-visible-bounds">
+                        {$content}
+                    </paper-tooltip>
+                else
+                    ()
             )
 };
 
