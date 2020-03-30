@@ -214,7 +214,10 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                     $nr
             return (
                 if ($wcVersion > 5) then
-                    <pb-popover id="fnref_{$id}" class="note {$class}" href="#fn_{$id}">{$fnNumber}<span slot="alternate">{$content}</span></pb-popover>
+                    <pb-popover id="fnref_{$id}" class="note {$class}">
+                        <a href="#fn_{$id}">{$fnNumber}</a>
+                        <span slot="alternate">{$content}</span>
+                    </pb-popover>
                 else
                     <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
                         <a class="note" rel="footnote" href="#fn_{$id}">
