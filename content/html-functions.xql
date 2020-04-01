@@ -213,17 +213,11 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 else
                     $nr
             return (
-                if ($wcVersion > 5) then
-                    <pb-popover id="fnref_{$id}" class="note {$class}">
-                        <a href="#fn_{$id}">{$fnNumber}</a>
-                        <span slot="alternate">{$content}</span>
-                    </pb-popover>
-                else
-                    <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
-                        <a class="note" rel="footnote" href="#fn_{$id}">
-                        { $fnNumber }
-                        </a>
-                    </span>,
+                <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
+                    <a class="note" rel="footnote" href="#fn_{$id}">
+                    { $fnNumber }
+                    </a>
+                </span>,
                 <dl class="footnote" id="fn_{$id}">
                     <dt class="fn-number">{ if ($nr instance of attribute()) then $nr/string() else $nr }</dt>
                     <dd class="fn-content">
@@ -231,7 +225,11 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                         <a class="fn-back" href="#fnref_{$id}">↩</a>
                     </dd>
                 </dl>,
-                if ($wcVersion = 5) then
+                if ($wcVersion > 5) then
+                    <pb-popover for="fnref_{$id}" class="footnote">
+                        {$content}
+                    </pb-popover>
+                else if ($wcVersion = 5) then
                     <paper-tooltip position="top" for="fnref_{$id}" fit-to-visible-bounds="fit-to-visible-bounds">
                         {$content}
                     </paper-tooltip>
