@@ -11,6 +11,12 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="2.8.4">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Generated footnote popups will now use pb-popover (with TEI Publisher 6), 
+                which provides better positioning</li>
+            </ul>
+        </change>
         <change version="2.8.3">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Enhanced docx to TEI import</li>
