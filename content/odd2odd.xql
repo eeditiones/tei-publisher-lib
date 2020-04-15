@@ -26,12 +26,6 @@ declare function odd:get-compiled($inputCol as xs:string, $odd as xs:string) as 
     odd:compile($inputCol, $odd)
 };
 
-declare function odd:compile($inputCol as xs:string, $odd as xs:string) as document-node() {
-    let $compiled := odd:compile($inputCol, $odd)
-    return
-        $compiled
-};
-
 declare function odd:compile($inputCol as xs:string, $odd as xs:string) {
     let $root := doc($inputCol || "/" || $odd)/tei:TEI
     return
