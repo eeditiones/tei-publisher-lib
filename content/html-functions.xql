@@ -347,7 +347,12 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
                     ()
             }
             <span slot="default">{pmf:apply-children($config, $node, $default)}</span>
-            <template slot="alternate">{pmf:apply-children($config, $node, $alternate)}</template>
+            {
+                if ($alternate) then
+                    <template slot="alternate">{pmf:apply-children($config, $node, $alternate)}</template>
+                else
+                    ()
+            }            
         </pb-popover>
 
     else
