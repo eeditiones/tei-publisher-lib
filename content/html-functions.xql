@@ -339,19 +339,19 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
 
       let $id := counters:increment($pmf:ALTERNATE_COUNTER_ID)
       return
-        <pb-popover class="alternate {$class}"  id="altref_{$id}">
+        <pb-popover class="alternate {$class}" id="altref_{$id}">
             {
                 if (boolean($optional?persistent)) then
                     attribute persistent { "persistent" }
                 else
                     ()
             }
-            <span class="default"> {pmf:apply-children($config, $node, $default)}</span>
-            <span class="alternate" slot="alternate">{pmf:apply-children($config, $node, $alternate)}</span>
+            <span slot="default">{pmf:apply-children($config, $node, $default)}</span>
+            <template slot="alternate">{pmf:apply-children($config, $node, $alternate)}</template>
         </pb-popover>
 
     else
-        <span class="alternate aa {$class}">
+        <span class="alternate {$class}">
             <span>{pmf:apply-children($config, $node, $default)}</span>
             <span class="altcontent">{pmf:apply-children($config, $node, $alternate)}</span>
         </span>
