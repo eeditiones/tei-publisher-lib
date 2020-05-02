@@ -24,11 +24,6 @@ declare variable $docx:copy :=
 ;
 
 declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
-    $odd as xs:string) {
-    docx:process($path, $dataRoot, $transform, ())
-};
-
-declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
     $mediaPath as xs:string?) {
     if (util:binary-doc-available($path)) then
         let $tempColl := docx:mkcol-recursive($dataRoot, "temp")
