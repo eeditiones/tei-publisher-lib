@@ -2,7 +2,7 @@
 <meta xmlns="http://exist-db.org/xquery/repo">
     <description>TEI Publisher: Processing Model Libraries</description>
     <author>Wolfgang Meier</author>
-    <website>http://gitlab.exist-db.org/tei-publisher/tei-publisher-lib</website>
+    <website>https://github.com/eeditiones/tei-publisher-lib.git</website>
     <status>stable</status>
     <license>GPLv3</license>
     <copyright>true</copyright>
