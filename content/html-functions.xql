@@ -213,11 +213,16 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 else
                     $nr
             return (
-                <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
-                    <a class="note" rel="footnote" href="#fn_{$id}">
+                if ($wcVersion > 5) then
+                    <a id="fnref_{$id}" class="note {$class}" rel="footnote" href="#fn_{$id}">
                     { $fnNumber }
                     </a>
-                </span>,
+                else
+                    <span id="fnref_{$id}" style="display:inline-block" class="{$class}">
+                        <a class="note" rel="footnote" href="#fn_{$id}">
+                        { $fnNumber }
+                        </a>
+                    </span>,
                 <dl class="footnote" id="fn_{$id}">
                     <dt class="fn-number">{ if ($nr instance of attribute()) then $nr/string() else $nr }</dt>
                     <dd class="fn-content">
