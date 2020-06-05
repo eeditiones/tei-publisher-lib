@@ -132,18 +132,29 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
             let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*)
-            let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
-            let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
-            let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
-            let $module := pmu:generate-module($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
+            let $error := util:compile-query($generated?code, $output-root)
             return
-                map {
-                    "id": $name,
-                    "uri": $generated?uri,
-                    "module": $xquery,
-                    "style": $style,
-                    "main": $main
-                }
+                if ($error/error) then
+                    map {
+                        "id": $name,
+                        "uri": $generated?uri,
+                        "module":  $name || "-" || $mode || ".xql",
+                        "error": $error,
+                        "code": $generated?code
+                    }
+                else
+                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
+                    let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
+                    let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
+                    let $module := pmu:generate-module($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
+                    return
+                        map {
+                            "id": $name,
+                            "uri": $generated?uri,
+                            "module": $xquery,
+                            "style": $style,
+                            "main": $main
+                        }
 };
 
 declare function pmu:generate-module($name as xs:string, $uri as xs:string,
