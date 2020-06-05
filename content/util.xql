@@ -135,13 +135,15 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
             let $error := util:compile-query($generated?code, $output-root)
             return
                 if ($error/error) then
-                    map {
-                        "id": $name,
-                        "uri": $generated?uri,
-                        "module":  $name || "-" || $mode || ".xql",
-                        "error": $error,
-                        "code": $generated?code
-                    }
+                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".invalid.xql", $generated?code, "application/xquery")
+                    return
+                        map {
+                            "id": $name,
+                            "uri": $generated?uri,
+                            "module":  $xquery,
+                            "error": $error,
+                            "code": $generated?code
+                        }
                 else
                     let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
                     let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
