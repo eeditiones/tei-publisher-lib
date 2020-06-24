@@ -353,7 +353,7 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
             }
             <span slot="default">{pmf:apply-children($config, $node, $default)}</span>
             {
-                if ($alternate) then
+                if (exists($alternate)) then
                     <template slot="alternate">{pmf:apply-children($config, $node, $alternate)}</template>
                 else
                     ()

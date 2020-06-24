@@ -55,4 +55,8 @@
         <namespace>https://w3id.org/dts/api#</namespace>
         <file>dts-api.xql</file>
     </xquery>
+    <xquery>
+        <namespace>http://www.tei-c.org/tei-simple/xquery/config</namespace>
+        <file>generate-pmc.xql</file>
+    </xquery>
 </package>
