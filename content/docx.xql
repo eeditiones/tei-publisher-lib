@@ -6,6 +6,7 @@ declare namespace w="http://schemas.openxmlformats.org/wordprocessingml/2006/mai
 declare namespace cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
 declare namespace rel="http://schemas.openxmlformats.org/package/2006/relationships";
 declare namespace r="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+declare namespace pkg="http://schemas.microsoft.com/office/2006/xmlPackage";
 
 import module namespace compression="http://exist-db.org/xquery/compression" at "java:org.exist.xquery.modules.compression.CompressionModule";
 
@@ -56,6 +57,32 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         )
     else
         ()
+};
+
+declare function docx:process-pkg($package as document-node(), $transform as function(*)) {
+    let $document := docx:normalize-ranges($package//pkg:part[@pkg:name = "/word/document.xml"]/pkg:xmlData/w:document)
+    let $styles := docx:extract-styles(util:expand($package//pkg:part[@pkg:name = "/word/styles.xml"])/pkg:xmlData/w:styles)
+    let $numbering := $package//pkg:part[@pkg:name = "/word/numbering.xml"]/pkg:xmlData/w:numbering
+    let $endnotes := docx:normalize-ranges($package//pkg:part[@pkg:name = "/word/endnotes.xml"]/pkg:xmlData/w:endnotes)
+    let $footnotes := docx:normalize-ranges($package//pkg:part[@pkg:name = "/word/footnotes.xml"]/pkg:xmlData/w:footnotes)
+    let $comments := docx:normalize-ranges($package//pkg:part[@pkg:name = "/word/comments.xml"]/pkg:xmlData/w:comments)
+    let $properties := $package//pkg:part[@pkg:name = "/docProps/core.xml"]/pkg:xmlData/cp:coreProperties
+    let $rels := $package//pkg:part[@pkg:name = "/word/_rels/document.xml.rels"]/pkg:xmlData/rel:Relationships
+    let $params := map {
+        "filename": "test.docx",
+        "styles": $styles,
+        "pstyle": docx:pstyle($styles, ?),
+        "cstyle": docx:cstyle($styles, ?),
+        "nstyle": docx:nstyle($numbering, $styles, ?),
+        "endnote": docx:endnote($endnotes, ?),
+        "footnote": docx:footnote($footnotes, ?),
+        "comment": docx:comment($comments, ?),
+        "link": docx:external-link($rels, ?),
+        "rels": $rels,
+        "properties": $properties
+    }
+    return
+        $transform($document, $params)
 };
 
 declare function docx:copy-media($rels as element(), $unzipped as xs:string, $mediaPath as xs:string?) {

@@ -300,6 +300,7 @@ declare function pmf:document($config as map(*), $node as node(), $class as xs:s
 declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content) {
     <head class="{$class}">
         <title>{ pmf:apply-children($config, $node, $node/tei:fileDesc/tei:titleStmt/tei:title//text()) }</title>
+        <meta charset="utf-8"/>
         <meta name="author" content="{ $node/tei:fileDesc/tei:titleStmt/tei:author//text() }"/>
         {
             if (exists($config?styles)) then
