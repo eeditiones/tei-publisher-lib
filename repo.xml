@@ -11,6 +11,12 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="2.8.8">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Added library module to generate a pm-config.xql based on ODD files used.
+                </li>
+            </ul>
+        </change>
         <change version="2.8.7">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>If changes to an ODD introduce XQuery syntax errors, don't overwrite the existing XQuery module.
