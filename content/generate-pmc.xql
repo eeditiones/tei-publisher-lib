@@ -76,19 +76,27 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
         )
     let $imports :=
         map:for-each($map, function($odd, $modes) {
-            for $mode in $modes[. != "tei"]
+            for $mode in $modes
             let $prefix := if ($mode = "print") then "fo" else $mode
             return
 ``[import module namespace pm-`{$odd}`-`{$mode}`="http://www.tei-c.org/pm/models/`{$odd}`/`{$prefix}`/module" at "../transform/`{$odd}`-`{$mode}`-module.xql";]``
         })
     let $vars :=
-        for $mode in ("web", "print", "latex", "epub")
+        for $mode in ("web", "print", "latex", "epub", "tei")
+        let $cases := pmc:generate-cases($map, $mode)
         return
             ``[
 declare variable $pm-config:`{$mode}`-transform := function($xml as node()*, $parameters as map(*)?, $odd as xs:string?) {
-    switch ($odd)
-        `{ pmc:generate-cases($map, $mode) }`
-        `{ pmc:generate-default($map, $mode, replace($default-odd, "^(.*?)\..*$", "$1")) }`
+    `{
+        if ($cases != "") then
+            ``[switch ($odd)
+    `{ $cases }`
+    `{ pmc:generate-default($map, $mode, replace($default-odd, "^(.*?)\..*$", "$1")) }`
+            ]``
+        else
+    ``[error(QName("http://www.tei-c.org/tei-simple/pm-config", "error"), "No default ODD found for output mode `{$mode}`")]``
+    }`
+    
 };
             ]``
     return ``[
