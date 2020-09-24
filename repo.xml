@@ -11,10 +11,14 @@
     <note>Generated apps may fail after updating. Run .../myapp/modules/lib/regenerate.xql in browser or eXide once
         to update your ODDs.</note>
     <changelog>
+        <change version="2.8.9">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Add support for transforming a docx package</li>
+            </ul>
+        </change>
         <change version="2.8.8">
             <ul xmlns="http://www.w3.org/1999/xhtml">
-                <li>Added library module to generate a pm-config.xql based on ODD files used.
-                </li>
+                <li>Added library module to generate a pm-config.xql based on ODD files used.</li>
             </ul>
         </change>
         <change version="2.8.7">
