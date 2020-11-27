@@ -232,15 +232,31 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 </dl>,
                 if ($wcVersion > 5) then
                     <pb-popover for="fnref_{$id}" class="footnote">
-                        {$content}
+                        { pmf:cleanup-popover($content) }
                     </pb-popover>
                 else if ($wcVersion = 5) then
                     <paper-tooltip position="top" for="fnref_{$id}" fit-to-visible-bounds="fit-to-visible-bounds">
-                        {$content}
+                        { pmf:cleanup-popover($content) }
                     </paper-tooltip>
                 else
                     ()
             )
+};
+
+declare %private function pmf:cleanup-popover($nodes as node()*) {
+    for $node in $nodes
+    return
+        typeswitch($node)
+            case element() return
+                if ($node/@class = "footnote") then
+                    ()
+                else
+                    element { node-name($node) } {
+                        $node/@*,
+                        pmf:cleanup-popover($node/node())
+                    }
+            default return
+                $node
 };
 
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content) {
