@@ -106,6 +106,9 @@ declare %private function css:global-css-by-rendition($root as document-node(), 
             "&#10;/* external styles not found: " || util:collection-name($root) || "/" || $source || " */&#10;"
 };
 
+declare function css:map-rend-to-class($node as node()*) {
+    tokenize($node/@rend, "[\s,]+")
+};
 
 declare function css:get-rendition($node as node()*, $class as xs:string+) {
     $class,

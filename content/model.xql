@@ -430,10 +430,12 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                             if ($model/@useSourceRendition = "true") then
                                 <function-call name="css:get-rendition">
                                     <param>.</param>
-                                    <param>({string-join(for $class in $classes return $class, ", ")})</param>
+                                    <param>({string-join((for $class in $classes return $class, "css:map-rend-to-class(.)"), ", ")})</param>
                                 </function-call>
                             else
-                                "(" || string-join(for $class in $classes return $class, ", ") || ")"
+                                "(" || 
+                                    string-join((for $class in $classes return $class, "css:map-rend-to-class(.)"), ", ") ||
+                                ")"
                         }
                         </param>
                         {
