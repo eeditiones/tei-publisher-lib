@@ -692,5 +692,5 @@ declare %private function pm:template-body-string($template as element(pb:templa
     let $param := if ($useMap) then "\$params?$1" else "\$$1"
     let $cmd := replace($template/string(), "\[\[([^\[\]]*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, " || $param || "))}`")
     return
-        "``[" || replace($cmd, "^\s*", "", "m") || "]``"
+        "``[" || replace($cmd, "^\s+", "", "m") || "]``"
 };
