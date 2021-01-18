@@ -10,6 +10,12 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="2.8.11">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Fix: first character of each line was stripped from pb-template containing text. LaTeX output broken.</li>
+                <li>For HTML output, also copy @rend into generated class list</li>
+            </ul>
+        </change>
         <change version="2.8.10">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Fix an issue with nested footnotes</li>
