@@ -187,7 +187,9 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 </span>
         default return
             let $nodeId :=
-                if ($node/@exist:id) then
+                if ($node/@xml:id) then
+                    $node/@xml:id
+                else if ($node/@exist:id) then
                     $node/@exist:id
                 else
                     util:node-id($node)
@@ -243,7 +245,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
             )
 };
 
-declare %private function pmf:cleanup-popover($nodes as node()*) {
+declare %private function pmf:cleanup-popover($nodes as item()*) {
     for $node in $nodes
     return
         typeswitch($node)
