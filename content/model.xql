@@ -247,6 +247,25 @@ return
     else
         $elem</body>
             </function>
+            <function name="model:map">
+                <param>$html</param>
+                <param>$context as node()</param>
+                <body>
+for $node in $html
+return
+    typeswitch ($node)
+            case document-node() | comment() | processing-instruction() return
+                $node
+            case element() return
+                element {{ node-name($node) }} {{
+                    attribute data-tei {{ util:node-id($context) }},
+                    $node/@*,
+                    $node/node()
+                }}
+            default return
+                &lt;pb-anchor data-tei="{{ util:node-id($context) }}"&gt;{{$node}}&lt;/pb-anchor&gt;
+                </body>
+            </function>
             </module>
         </xquery>
     return
@@ -442,7 +461,8 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                             pm:map-parameters($signature, $params, $ident, $modules, $output, exists($model/pb:template)),
                             pm:optional-parameters($signature, $params)
                         }
-                    </function-call>
+                    </function-call>,
+                    "=> model:map($node)"
                 } catch pm:not-found {
                     <comment>Failed to map function for behavior {$behaviour/string()}. {$err:description}</comment>,
                     <comment>{serialize($model)}</comment>,
