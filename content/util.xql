@@ -117,6 +117,7 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
 
 declare function pmu:process-odd($odd as document-node(), $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?) as map(*) {
+        pmu:process-odd($odd, $output-root, $mode, $relPath, $config, false())
 };
 
 (:~

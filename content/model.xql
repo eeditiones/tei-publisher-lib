@@ -116,6 +116,8 @@ return (
                     <body>
                         <let var="parameters">
                             <expr>if (exists($config?parameters)) then $config?parameters else map {{}}</expr>
+                            <let var="trackIds">
+                                <expr>$parameters?track-ids</expr>
                                 <let var="get">
                                     <expr>model:source($parameters, ?)</expr>
                                     <return>
@@ -220,6 +222,7 @@ return (
                                         </sequence>
                                     </return>
                                 </let>
+                            </let>
                         </let>
                     </body>
                 </function>
@@ -253,32 +256,55 @@ return
     else
         $elem</body>
             </function>
-            <function name="model:map">
+            <function name="model:process-annotation">
                 <param>$html</param>
                 <param>$context as node()</param>
                 <body>
-for $node in $html
+let $classRegex := analyze-string($html/@class, '\s?annotation-([^\s]+)\s?')
 return
-    typeswitch ($node)
-            case document-node() | comment() | processing-instruction() return
+    if ($classRegex//fn:match) then
+        attribute data-annotation {{
+            map {{ 
+                "type": ($classRegex//fn:group)[1]/string(),
+                "properties": map:merge($context/@* ! map:entry(node-name(.), ./string()))
+            }}
+            => serialize(map {{ "method": "json" }})
+        }}
+    else
+        ()
+                </body>
+            </function>
+            <function name="model:map">
+                <param>$html</param>
+                <param>$context as node()</param>
+                <param>$trackIds as item()?</param>
+                <body>
+if ($trackIds) then
+    for $node in $html
+    return
+        typeswitch ($node)
+            case document-node() | comment() | processing-instruction() return 
                 $node
             case element() return
                 element {{ node-name($node) }} {{
                     attribute data-tei {{ util:node-id($context) }},
                     $node/@*,
+                    model:process-annotation($node, $context),
                     $node/node()
                 }}
             default return
                 &lt;pb-anchor data-tei="{{ util:node-id($context) }}"&gt;{{$node}}&lt;/pb-anchor&gt;
+else
+    $html
                 </body>
-            </function>
-            </module>
-        </xquery>
-    return
-        map {
-            "uri": $uri,
-            "code": xqgen:generate($xqueryXML, 0)
-        }
+                </function>
+                </module>
+            </xquery>
+        return
+            map {
+                "uri": $uri,
+                "code": xqgen:generate($xqueryXML, 0)
+            }
 };
 
 declare function pm:load-modules($modules as array(*)) as array(*) {
@@ -470,7 +496,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                             pm:optional-parameters($signature, $params)
                         }
                     </function-call>,
-                    if ($trackIds) then "=> model:map($node)" else ()
+                    if ($trackIds) then "=> model:map($node, $trackIds)" else ()
                 } catch pm:not-found {
                     <comment>Failed to map function for behavior {$behaviour/string()}. {$err:description}</comment>,
                     <comment>{serialize($model)}</comment>,
