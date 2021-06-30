@@ -286,12 +286,19 @@ if ($trackIds) then
             case document-node() | comment() | processing-instruction() return 
                 $node
             case element() return
-                element {{ node-name($node) }} {{
-                    attribute data-tei {{ util:node-id($context) }},
-                    $node/@*,
-                    model:process-annotation($node, $context),
-                    $node/node()
-                }}
+                if ($node/@class = ("footnote")) then
+                    element {{ node-name($node) }} {{
+                        $node/@*,
+                        $node/*[@class="fn-number"],
+                        model:map($node/*[@class="fn-content"], $context, $trackIds)
+                    }}
+                else
+                    element {{ node-name($node) }} {{
+                        attribute data-tei {{ util:node-id($context) }},
+                        $node/@*,
+                        model:process-annotation($node, $context),
+                        $node/node()
+                    }}
             default return
                 &lt;pb-anchor data-tei="{{ util:node-id($context) }}"&gt;{{$node}}&lt;/pb-anchor&gt;
 else
