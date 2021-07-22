@@ -125,6 +125,10 @@ declare function pmf:section($config as map(*), $node as node(), $class as xs:st
     <section class="{$class}">{pmf:apply-children($config, $node, $content)}</section>
 };
 
+declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
+    pmf:apply-children($config, $node, $content)
+};
+
 declare function pmf:anchor($config as map(*), $node as node(), $class as xs:string+, $content, $id as item()*) {
     <span id="{$id}"/>
 };
