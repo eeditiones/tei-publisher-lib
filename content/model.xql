@@ -263,11 +263,17 @@ return
 let $classRegex := analyze-string($html/@class, '\s?annotation-([^\s]+)\s?')
 return
     if ($classRegex//fn:match) then (
-        attribute data-type {{ ($classRegex//fn:group)[1]/string() }},
-        attribute data-annotation {{
-            map:merge($context/@* ! map:entry(node-name(.), ./string()))
-            => serialize(map {{ "method": "json" }})
-        }}
+        if ($html/@data-type) then
+            ()
+        else
+            attribute data-type {{ ($classRegex//fn:group)[1]/string() }},
+        if ($html/@data-annotation) then
+            ()
+        else
+            attribute data-annotation {{
+                map:merge($context/@* ! map:entry(node-name(.), ./string()))
+                => serialize(map {{ "method": "json" }})
+            }}
     ) else
         ()
                 </body>
