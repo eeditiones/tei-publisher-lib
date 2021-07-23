@@ -291,11 +291,14 @@ if ($trackIds) then
                 $node
             case element() return
                 if ($node/@class = ("footnote")) then
-                    element {{ node-name($node) }} {{
-                        $node/@*,
-                        $node/*[@class="fn-number"],
-                        model:map($node/*[@class="fn-content"], $context, $trackIds)
-                    }}
+                    if (local-name($node) = 'pb-popover') then
+                        ()
+                    else
+                        element {{ node-name($node) }} {{
+                            $node/@*,
+                            $node/*[@class="fn-number"],
+                            model:map($node/*[@class="fn-content"], $context, $trackIds)
+                        }}
                 else
                     element {{ node-name($node) }} {{
                         attribute data-tei {{ util:node-id($context) }},
