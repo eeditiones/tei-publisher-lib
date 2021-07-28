@@ -115,9 +115,23 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
         util:eval(xs:anyURI($uri), false(), (xs:QName("xml"), $xml, xs:QName("parameters"), $parameters))
 };
 
-
 declare function pmu:process-odd($odd as document-node(), $output-root as xs:string,
     $mode as xs:string, $relPath as xs:string, $config as element(modules)?) as map(*) {
+        pmu:process-odd($odd, $output-root, $mode, $relPath, $config, false())
+};
+
+(:~
+ : Compile the given ODD into an XQuery module.
+ :
+ : @param $odd the ODD document to compile
+ : @param $output-root collection URI into which to write generated files
+ : @param $mode the output mode (web, print etc.) for which to generate files
+ : @param $relPath path relative to the generated code for loading CSS etc.
+ : @param $trackIds if true, elements generated from a model of the ODD will have an @data-tei attribute
+ : referencing the TEI XML node which triggered the model. This is used to track elements between HTML and TEI. 
+ :)
+declare function pmu:process-odd($odd as document-node(), $output-root as xs:string,
+    $mode as xs:string, $relPath as xs:string, $config as element(modules)?, $trackIds as xs:boolean?) as map(*) {
     let $oddPath := ($odd/*/@source, document-uri(root($odd)))[1]
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $modulesDefault := pmu:parse-config-properties($mode, $name, $config, $pmu:MODULES?($mode))
@@ -131,7 +145,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
         if (empty($module)) then
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
-            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*)
+            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*, $trackIds)
             let $error := util:compile-query($generated?code, $output-root)
             return
                 if ($error/error) then

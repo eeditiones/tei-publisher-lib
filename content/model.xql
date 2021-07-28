@@ -35,6 +35,10 @@ declare variable $pm:ERR_TOO_MANY_MODELS := xs:QName("pm:too-many-models");
 declare variable $pm:MULTIPLE_FUNCTIONS_FOUND := xs:QName("pm:multiple-functions");
 declare variable $pm:NOT_FOUND := xs:QName("pm:not-found");
 
+declare function pm:parse($odd as element(), $modules as array(*), $output as xs:string*) as map(*) {
+    pm:parse($odd, $modules, $output, false())
+};
+
 (:~
  : Parse the given ODD and generate an XQuery transformation module.
  :
@@ -44,7 +48,7 @@ declare variable $pm:NOT_FOUND := xs:QName("pm:not-found");
  : will be used.
  : @param output the output method to use ("web" by default)
  :)
-declare function pm:parse($odd as element(), $modules as array(*), $output as xs:string*) as map(*) {
+declare function pm:parse($odd as element(), $modules as array(*), $output as xs:string*, $trackIds as xs:boolean?) as map(*) {
     let $output := if (exists($output)) then $output else "web"
     let $oddPath := ($odd/@source/string(), document-uri(root($odd)))[1]
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
@@ -112,6 +116,8 @@ return (
                     <body>
                         <let var="parameters">
                             <expr>if (exists($config?parameters)) then $config?parameters else map {{}}</expr>
+                            <let var="trackIds">
+                                <expr>$parameters?track-ids</expr>
                                 <let var="get">
                                     <expr>model:source($parameters, ?)</expr>
                                     <return>
@@ -125,7 +131,7 @@ return (
                                                         <typeswitch op=".">
                                                             {
                                                                 for $spec in $odd//tei:elementSpec[not(@ident=('text()', '*'))][.//tei:model]
-                                                                let $case := pm:elementSpec($spec, $moduleDesc, $output)
+                                                                let $case := pm:elementSpec($spec, $moduleDesc, $output, $trackIds)
                                                                 return
                                                                     if (exists($case)) then (
                                                                         if ($spec/tei:desc) then
@@ -156,7 +162,8 @@ return (
                                                                                 "-element",
                                                                                 pm:get-model-elements($defaultSpec, $output),
                                                                                 $moduleDesc,
-                                                                                $output
+                                                                                $output,
+                                                                                $trackIds
                                                                             )
                                                                         }
                                                                         </case>
@@ -181,7 +188,8 @@ return (
                                                                                 "-text",
                                                                                 pm:get-model-elements($defaultSpec, $output),
                                                                                 $moduleDesc,
-                                                                                $output
+                                                                                $output,
+                                                                                $trackIds
                                                                             )
                                                                         }
                                                                         </case>
@@ -214,6 +222,7 @@ return (
                                         </sequence>
                                     </return>
                                 </let>
+                            </let>
                         </let>
                     </body>
                 </function>
@@ -247,13 +256,69 @@ return
     else
         $elem</body>
             </function>
-            </module>
-        </xquery>
+            <function name="model:process-annotation">
+                <param>$html</param>
+                <param>$context as node()</param>
+                <body>
+let $classRegex := analyze-string($html/@class, '\s?annotation-([^\s]+)\s?')
+return
+    if ($classRegex//fn:match) then (
+        if ($html/@data-type) then
+            ()
+        else
+            attribute data-type {{ ($classRegex//fn:group)[1]/string() }},
+        if ($html/@data-annotation) then
+            ()
+        else
+            attribute data-annotation {{
+                map:merge($context/@* ! map:entry(node-name(.), ./string()))
+                => serialize(map {{ "method": "json" }})
+            }}
+    ) else
+        ()
+                </body>
+            </function>
+            <function name="model:map">
+                <param>$html</param>
+                <param>$context as node()</param>
+                <param>$trackIds as item()?</param>
+                <body>
+if ($trackIds) then
+    for $node in $html
     return
-        map {
-            "uri": $uri,
-            "code": xqgen:generate($xqueryXML, 0)
-        }
+        typeswitch ($node)
+            case document-node() | comment() | processing-instruction() return 
+                $node
+            case element() return
+                if ($node/@class = ("footnote")) then
+                    if (local-name($node) = 'pb-popover') then
+                        ()
+                    else
+                        element {{ node-name($node) }} {{
+                            $node/@*,
+                            $node/*[@class="fn-number"],
+                            model:map($node/*[@class="fn-content"], $context, $trackIds)
+                        }}
+                else
+                    element {{ node-name($node) }} {{
+                        attribute data-tei {{ util:node-id($context) }},
+                        $node/@*,
+                        model:process-annotation($node, $context),
+                        $node/node()
+                    }}
+            default return
+                &lt;pb-anchor data-tei="{{ util:node-id($context) }}"&gt;{{$node}}&lt;/pb-anchor&gt;
+else
+    $html
+                </body>
+                </function>
+                </module>
+            </xquery>
+        return
+            map {
+                "uri": $uri,
+                "code": xqgen:generate($xqueryXML, 0)
+            }
 };
 
 declare function pm:load-modules($modules as array(*)) as array(*) {
@@ -309,7 +374,7 @@ declare %private function pm:finish-modules($modules as array(*)) {
 };
 
 
-declare %private function pm:elementSpec($spec as element(tei:elementSpec), $modules as array(*), $output as xs:string+) {
+declare %private function pm:elementSpec($spec as element(tei:elementSpec), $modules as array(*), $output as xs:string+, $trackIds as xs:boolean?) {
     let $models := pm:get-model-elements($spec, $output)
     return
         if ($models) then
@@ -317,20 +382,21 @@ declare %private function pm:elementSpec($spec as element(tei:elementSpec), $mod
                 $spec/@ident,
                 $models,
                 $modules,
-                $output
+                $output,
+                $trackIds
             )
         else
             ()
 };
 
 declare %private function pm:process-models($ident as xs:string, $models as element()+, $modules as array(*),
-    $output as xs:string+) {
+    $output as xs:string+, $trackIds as xs:boolean?) {
     if ($models[1][not(@predicate)]) then
-        pm:model-or-sequence($ident, $models[1], $modules, $output)
+        pm:model-or-sequence($ident, $models[1], $modules, $output, $trackIds)
     else if ($models[@predicate]) then
         fold-right($models[@predicate], (), function($cond, $zero) {
             <if test="{$cond/@predicate}">
-                <then>{pm:model-or-sequence($ident, $cond, $modules, $output)}</then>
+                <then>{pm:model-or-sequence($ident, $cond, $modules, $output, $trackIds)}</then>
                 {
                     if ($zero) then
                         <else>{$zero}</else>
@@ -341,12 +407,12 @@ declare %private function pm:process-models($ident as xs:string, $models as elem
                                 if (count($models[not(@predicate)]) > 1 and not($models/parent::tei:modelSequence)) then (
                                     <comment>More than one model without predicate found for ident {$ident}.
                                     Choosing first one.</comment>,
-                                    pm:model-or-sequence($ident, $models[not(@predicate)][1], $modules, $output)
+                                    pm:model-or-sequence($ident, $models[not(@predicate)][1], $modules, $output, $trackIds)
 (:                                    error($pm:ERR_TOO_MANY_MODELS,:)
 (:                                        "More than one model without predicate found " ||:)
 (:                                        "outside modelSequence for ident '" || $ident || "'"):)
                                 ) else
-                                    pm:model-or-sequence($ident, $models[not(@predicate)], $modules, $output)
+                                    pm:model-or-sequence($ident, $models[not(@predicate)], $modules, $output, $trackIds)
                             else
                                 <function-call name="$config?apply">
                                     <param>$config</param>
@@ -360,33 +426,34 @@ declare %private function pm:process-models($ident as xs:string, $models as elem
     else if (count($models) > 1 and not($models/parent::tei:modelSequence)) then (
         <comment>More than one model without predicate found for ident {$ident}.
         Choosing first one.</comment>,
-        pm:model-or-sequence($ident, $models[1], $modules, $output)
+        pm:model-or-sequence($ident, $models[1], $modules, $output, $trackIds)
     ) else
-        $models ! pm:model-or-sequence($ident, ., $modules, $output)
+        $models ! pm:model-or-sequence($ident, ., $modules, $output, $trackIds)
 };
 
 declare %private function pm:model-or-sequence($ident as xs:string, $models as element()+,
-    $modules as array(*), $output as xs:string+) {
+    $modules as array(*), $output as xs:string+, $trackIds as xs:boolean?) {
     for $model in $models
     return
         typeswitch($model)
             case element(tei:model) return
-                pm:model($ident, $model, $modules, $output)
+                pm:model($ident, $model, $modules, $output, $trackIds)
             case element(tei:modelSequence) return
-                pm:modelSequence($ident, $model, $modules, $output)
+                pm:modelSequence($ident, $model, $modules, $output, $trackIds)
             case element(tei:modelGrp) return
-                pm:process-models($ident, $model/*, $modules, $output)
+                pm:process-models($ident, $model/*, $modules, $output, $trackIds)
             default return
                 ()
 };
 
-declare %private function pm:model($ident as xs:string, $model as element(tei:model), $modules as array(*), $output as xs:string+) {
+declare %private function pm:model($ident as xs:string, $model as element(tei:model), $modules as array(*), 
+    $output as xs:string+, $trackIds as xs:boolean?) {
     let $behaviour := $model/@behaviour
     let $task := normalize-space($model/@behaviour)
     let $nested := pm:get-model-elements($model, $output)
     let $content :=
         if ($nested) then
-            pm:process-models($ident, $nested, $modules, $output)
+            pm:process-models($ident, $nested, $modules, $output, $trackIds)
         else
             "."
     let $params := $model/tei:param
@@ -439,10 +506,11 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                         }
                         </param>
                         {
-                            pm:map-parameters($signature, $params, $ident, $modules, $output, exists($model/pb:template)),
+                            pm:map-parameters($signature, $params, $ident, $modules, $output, exists($model/pb:template), $trackIds),
                             pm:optional-parameters($signature, $params)
                         }
-                    </function-call>
+                    </function-call>,
+                    if ($trackIds) then "=> model:map($node, $trackIds)" else ()
                 } catch pm:not-found {
                     <comment>Failed to map function for behavior {$behaviour/string()}. {$err:description}</comment>,
                     <comment>{serialize($model)}</comment>,
@@ -458,7 +526,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
 };
 
 declare %private function pm:modelSequence($ident as xs:string, $seq as element(tei:modelSequence),
-    $modules as array(*), $output as xs:string+) {
+    $modules as array(*), $output as xs:string+, $trackIds as xs:boolean?) {
     <sequence>
     {
         for $model in $seq/(tei:model|tei:modelSequence|tei:modelGrp)[not(@output)] |
@@ -468,11 +536,11 @@ declare %private function pm:modelSequence($ident as xs:string, $seq as element(
             {
                 if ($model/@predicate) then
                     <if test="{$model/@predicate}">
-                        <then>{pm:model-or-sequence($ident, $model, $modules, $output)}</then>
+                        <then>{pm:model-or-sequence($ident, $model, $modules, $output, $trackIds)}</then>
                         <else>()</else>
                     </if>
                 else
-                    pm:model-or-sequence($ident, $model, $modules, $output)
+                    pm:model-or-sequence($ident, $model, $modules, $output, $trackIds)
             }
             </item>
     }
@@ -564,7 +632,7 @@ declare %private function pm:behaviour-function-meta($behave as element(pb:behav
 };
 
 declare function pm:map-parameters($signature as element(function), $params as element(tei:param)+,  $ident as xs:string, $modules as array(*),
-    $output as xs:string+, $hasTemplate as xs:boolean?) {
+    $output as xs:string+, $hasTemplate as xs:boolean?, $trackIds as xs:boolean?) {
     for $arg in subsequence($signature/argument, 4)
     let $mapped := $params[@name = $arg/@var]
     return
@@ -572,7 +640,7 @@ declare function pm:map-parameters($signature as element(function), $params as e
             let $nested := pm:get-model-elements($mapped, $output)
             return
                 if ($nested) then
-                    <param>{ pm:process-models($ident, $nested, $modules, $output) }</param>
+                    <param>{ pm:process-models($ident, $nested, $modules, $output, $trackIds) }</param>
                 else if ($hasTemplate and $arg/@var = 'content') then
                     <param>$content</param>
                 else
