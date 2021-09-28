@@ -530,7 +530,7 @@ declare %private function pm:modelSequence($ident as xs:string, $seq as element(
     <sequence>
     {
         for $model in $seq/(tei:model|tei:modelSequence|tei:modelGrp)[not(@output)] |
-            $seq/(tei:model|tei:modelSequence|tei:modelGrp)[@output = $output][1]
+            $seq/(tei:model|tei:modelSequence|tei:modelGrp)[@output = $output]
         return
             <item>
             {
