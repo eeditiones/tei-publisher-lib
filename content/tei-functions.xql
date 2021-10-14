@@ -258,57 +258,52 @@ declare %private function pmf:create-divisions($tei as element(tei:TEI)) {
             <TEI xmlns="http://www.tei-c.org/ns/1.0">
                 { $tei/tei:teiHeader }
                 <text>
-                    <body>
                     {
-                        $body/@*,
-                        $body/node()[. << $firstHead],
-                        pmf:division($firstHead)
+                        pmf:wrap-divisions($body)
                     }
-                    </body>
                 </text>
             </TEI>
         else
             $tei
 };
 
-
-declare %private function pmf:division($head as element()?) {
-    if ($head) then
-        let $myLevel := number(head(($head/@pmf:level, 0)))
-        let $nextHeading := $head/following-sibling::tei:head[1]
-        return
-            if ($nextHeading and $nextHeading/@pmf:level > $myLevel) then
-                <div xmlns="http://www.tei-c.org/ns/1.0">
-                    <head>
-                    {
-                        $head/@* except $head/@pmf:level,
-                        $head/node()
-                    }
-                    </head>
-                    {
-                        $head/following-sibling::node()[. << $nextHeading],
-                        pmf:division($nextHeading)
-                    }
-                </div>
-            else (
-                <div xmlns="http://www.tei-c.org/ns/1.0">
-                    <head>
-                    {
-                        $head/@* except $head/@pmf:level,
-                        $head/node()
-                    }
-                    </head>
-                    {
-                        if ($nextHeading) then
-                            $head/following-sibling::node()[. << $nextHeading]
-                        else
-                            $head/following-sibling::node()
-                    }
-                </div>,
-                pmf:division($nextHeading)
-            )
-    else
-        ()
+(:~
+ : Recursively wrap headings and following text into a hierarchy of divisions.
+ :)
+declare %private function pmf:wrap-divisions($block as element()) {
+    (: Always look at the first heading, then find other headings on the same outline level
+    :)
+    let $firstHead := $block/tei:head[@pmf:level][1]
+    return
+        if ($firstHead) then
+            element { node-name($block) } {
+                $block/@*,
+                $block/node()[. << $firstHead],
+                let $level := number(head(($firstHead/@pmf:level, 0)))
+                (: iterate over headings on the same outline level :)
+                for $head in $block/tei:head[@pmf:level = $level]
+                let $nextHead := $head/following-sibling::tei:head[@pmf:level = $level][1]
+                let $div :=
+                    <div xmlns="http://www.tei-c.org/ns/1.0">
+                        <head>
+                        {
+                            $head/@* except $head/@pmf:level,
+                            $head/node()
+                        }
+                        </head>
+                        { 
+                            if ($nextHead) then
+                                $head/following-sibling::node()[. << $nextHead] 
+                            else
+                                $head/following-sibling::node()
+                        }
+                    </div>
+                return
+                    (: Recursively apply to remaining headings :)
+                    pmf:wrap-divisions($div)
+            }
+        else
+            $block
 };
 
 declare %private function pmf:wrap-list($items as element()*) {
