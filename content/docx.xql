@@ -37,6 +37,11 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         let $comments := docx:normalize-ranges(doc($unzipped || "/word/comments.xml")/w:comments)
         let $properties := doc($unzipped || "/docProps/core.xml")/cp:coreProperties
         let $rels := doc($unzipped || "/word/_rels/document.xml.rels")/rel:Relationships
+        let $linkRels := map {
+            "document": $rels,
+            "footnotes": doc($unzipped || "/word/_rels/footnotes.xml.rels")/rel:Relationships,
+            "endnotes": doc($unzipped || "/word/_rels/endnotes.xml.rels")/rel:Relationships
+        }
         let $params := map {
             "filename": replace($path, "^.*?([^/]+)$", "$1"),
             "styles": $styles,
@@ -46,7 +51,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "endnote": docx:endnote($endnotes, ?),
             "footnote": docx:footnote($footnotes, ?),
             "comment": docx:comment($comments, ?),
-            "link": docx:external-link($rels, ?),
+            "link": docx:external-link($linkRels, ?),
             "rels": $rels,
             "properties": $properties
         }
@@ -147,8 +152,13 @@ declare function docx:comment($comments as element()*, $node as element()) {
         $comments/w:comment[@w:id = $id]/*
 };
 
-declare function docx:external-link($rels as element()*, $node as element()) {
-    $rels/rel:Relationship[@Id=$node/@r:id]
+declare function docx:external-link($rels as map(*), $node as element()) {
+    if ($node/ancestor::w:footnote) then
+        $rels?footnotes/rel:Relationship[@Id=$node/@r:id]
+    else if ($node/ancestor::w:endnote) then
+        $rels?endnotes/rel:Relationship[@Id=$node/@r:id]
+    else
+        $rels?document/rel:Relationship[@Id=$node/@r:id]
 };
 
 declare function docx:extract-styles($doc as element()?) {
