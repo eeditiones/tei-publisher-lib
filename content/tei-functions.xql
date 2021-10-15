@@ -366,6 +366,8 @@ declare %private function pmf:combine($nodes as node()*) {
                         { pmf:wrap-list(($node, $sibs)) }
                         </list>
                     )
+            case element(tei:code) | element(tei:tag) return
+                $node
             case element() return
                 if (local-name($node) = $pmf:INLINE_ELEMENTS) then
                     if ($node/preceding-sibling::node()[1][local-name(.) = local-name($node)]) then
