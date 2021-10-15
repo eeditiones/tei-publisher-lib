@@ -10,6 +10,18 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="2.9.1">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>docx2tei: construction of division hierarchy from titles: divisions were nested incorrectly</li>
+                <li>docx2tei: correctly resolve hyperlinks in footnotes and endnotes</li>
+                <li>only first child of modelSequence was taken into account if @output was specified</li>
+            </ul>
+        </change>
+        <change version="2.9.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Add support for web annotations. Complements TEI Publisher 7.1.0</li>
+            </ul>
+        </change>
         <change version="2.8.11">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Fix: first character of each line was stripped from pb-template containing text. LaTeX output broken.</li>
