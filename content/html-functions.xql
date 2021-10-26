@@ -126,7 +126,7 @@ declare function pmf:section($config as map(*), $node as node(), $class as xs:st
 };
 
 declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
-    pmf:apply-children($config, $node, $content)
+    pmf:apply-children($config, true(), $node, $content)
 };
 
 declare function pmf:anchor($config as map(*), $node as node(), $class as xs:string+, $content, $id as item()*) {
@@ -427,10 +427,14 @@ declare function pmf:template($config as map(*), $node as node()*, $class as xs:
         }
 };
 
-declare function pmf:apply-children($config as map(*), $node as node(), $content) {
-    if ($node/@xml:id) then
+declare function pmf:apply-children($config as map(*), $ignoreId as xs:boolean?, $node as node(), $content) {
+    if (not($ignoreId) and $node/@xml:id) then
         attribute id { $node/@xml:id }
     else
         (),
     $config?apply-children($config, $node, $content)
+};
+
+declare function pmf:apply-children($config as map(*), $node as node(), $content) {
+    pmf:apply-children($config, false(), $node, $content)
 };
