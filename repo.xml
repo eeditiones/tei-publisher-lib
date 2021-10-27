@@ -10,6 +10,12 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="2.9.2">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>docx2tei: another approach to reconstruct division hierarchy from titles, covering more edge cases</li>
+                <li>pass-through behaviour should not copy xml:id: there might be no parent element</li>
+            </ul>
+        </change>
         <change version="2.9.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>docx2tei: construction of division hierarchy from titles: divisions were nested incorrectly</li>
