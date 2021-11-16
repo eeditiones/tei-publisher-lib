@@ -34,6 +34,7 @@ declare namespace pb="http://teipublisher.com/1.0";
 declare variable $pm:ERR_TOO_MANY_MODELS := xs:QName("pm:too-many-models");
 declare variable $pm:MULTIPLE_FUNCTIONS_FOUND := xs:QName("pm:multiple-functions");
 declare variable $pm:NOT_FOUND := xs:QName("pm:not-found");
+declare variable $pm:INVALID := xs:QName("pm:invalid");
 
 declare function pm:parse($odd as element(), $modules as array(*), $output as xs:string*) as map(*) {
     pm:parse($odd, $modules, $output, false())
@@ -484,6 +485,7 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                     else
                         (),
                     pm:expand-template($model, $params, $output),
+                    pm:set-parameters($model),
                     <function-call name="{$fn?prefix}:{$task}">
                         {
                             if ($model/pb:template) then
@@ -545,6 +547,35 @@ declare %private function pm:modelSequence($ident as xs:string, $seq as element(
             </item>
     }
     </sequence>
+};
+
+declare %private function pm:set-parameters($model as element(tei:model)) as xs:string? {
+    if ($model/pb:set-param) then
+        let $addParams :=
+            for $param in $model/pb:set-param
+            return
+                if (empty($param/@name)) then
+                    error($pm:INVALID, "pb:set-parameters needs a @name attribute")
+                else if (empty($param/@value)) then
+                    error($pm:INVALID, "pb:set-parameters needs a @value attribute")
+                else
+                    '"' || $param/@name || '": ' || $param/@value
+        return
+            ``[let $config := map:merge((
+    $config,
+    map {
+        "parameters": map:merge((
+            $config?parameters,
+            map {
+            `{ string-join($addParams, ',&#10;') }`
+            }
+        ))
+    }
+))
+return
+            ]``
+    else
+        ()
 };
 
 declare %private function pm:get-class($ident as xs:string, $model as element(tei:model)) as xs:string+ {
