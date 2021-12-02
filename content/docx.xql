@@ -18,7 +18,7 @@ declare variable $docx:copy :=
             $copy4
         else
             function ($source, $target, $resource) {
-                xmldb:copy-resource($source, $resource, $target, $resource)
+                function-lookup(xs:QName("xmldb:copy-resource"), 4)($source, $resource, $target, $resource)
             }
 ;
 
