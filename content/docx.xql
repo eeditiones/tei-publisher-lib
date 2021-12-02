@@ -17,11 +17,9 @@ declare variable $docx:copy :=
         if (exists($copy4)) then
             $copy4
         else
-            let $copy5 := function-lookup(xs:QName("xmldb:copy-resource"), 4)
-            return
-                function ($source, $target, $resource) {
-                    $copy5($source, $resource, $target, $resource)
-                }
+            function ($source, $target, $resource) {
+                xmldb:copy-resource($source, $resource, $target, $resource)
+            }
 ;
 
 declare function docx:process($path as xs:string, $dataRoot as xs:string, $transform as function(*),
