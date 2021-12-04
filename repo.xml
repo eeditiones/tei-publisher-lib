@@ -10,6 +10,14 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="2.10.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>fix error in docx upload processing</li>
+                <li>ignore [trash] folder in uploaded docx files</li>
+                <li>add support for &lt;pb:set-param&gt; to dynamically set a parameter for all subsequent models called. The new parameter will be availble in the $parameters map.</li>
+                <li>add attribute @pb:mode on &lt;model&gt; to declare a mode on all subsequent models called. The mode will be available to subsequent models in variable $mode.</li>
+            </ul>
+        </change>
         <change version="2.9.2">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>docx2tei: another approach to reconstruct division hierarchy from titles, covering more edge cases</li>
