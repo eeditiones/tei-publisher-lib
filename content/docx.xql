@@ -192,12 +192,14 @@ declare %private function docx:unzip($collection as xs:string, $docx as xs:strin
 declare %private function docx:unzip-file($targetCol as xs:string, $path as xs:anyURI, $type as xs:string,
     $data as item()?, $param as item()*) {
     let $fileName := replace($path, "^.*?/?([^/]+)$", "$1")
+    let $trash := fn:starts-with($path,'[trash]')
     let $target :=
         if (contains($path, "/")) then
             let $relPath := replace($path, "^(.*?)/[^/]+$", "$1")
-            let $newPath := docx:mkcol-recursive($targetCol, tokenize($relPath, "/"))
+(: skip [trash] folder in some docx files :)
+            let $newPath := if ($trash) then () else docx:mkcol-recursive($targetCol, tokenize($relPath, "/"))
             return
-                $targetCol || "/" || $relPath
+                if ($trash) then $targetCol else $targetCol || "/" || $relPath
         else
             $targetCol
     return
