@@ -10,6 +10,11 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="2.10.1">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>@pb:mode needs to be applied before templates are processed</li>
+            </ul>
+        </change>
         <change version="2.10.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>fix error in docx upload processing</li>
