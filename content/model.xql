@@ -480,16 +480,15 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                 (),
             let $signature := $fn?function[1]
             let $classes := pm:get-class($ident, $model)
-            let $spec := $model/ancestor::tei:elementSpec[1]
             return
                 try {
                     if ($model/tei:desc) then
                         <comment>{$model/tei:desc}</comment>
                     else
                         (),
+                    pm:set-mode($model),
                     pm:expand-template($model, $params, $output),
                     pm:set-parameters($model),
-                    pm:set-mode($model),
                     <function-call name="{$fn?prefix}:{$task}">
                         {
                             if ($model/pb:template) then
