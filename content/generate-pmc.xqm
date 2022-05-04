@@ -79,7 +79,7 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
             for $mode in $modes
             let $prefix := if ($mode = "print") then "fo" else $mode
             return
-``[import module namespace pm-`{$odd}`-`{$mode}`="http://www.tei-c.org/pm/models/`{$odd}`/`{$prefix}`/module" at "../transform/`{$odd}`-`{$mode}`-module.xql";]``
+``[import module namespace pm-`{$odd}`-`{$mode}`="http://www.tei-c.org/pm/models/`{$odd}`/`{$prefix}`/module" at "../transform/`{$odd}`-`{$mode}`-module.xqm";]``
         })
     let $vars :=
         for $mode in ("web", "print", "latex", "epub", "tei")

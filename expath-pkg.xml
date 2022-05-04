@@ -4,58 +4,58 @@
     <dependency processor="http://exist-db.org" semver-min="3.6.0" />
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions</namespace>
-        <file>html-functions.xql</file>
+        <file>html-functions.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions/fo</namespace>
-        <file>fo-functions.xql</file>
+        <file>fo-functions.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions/latex</namespace>
-        <file>latex-functions.xql</file>
+        <file>latex-functions.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://existsolutions.com/xquery/functions/tei</namespace>
-        <file>tei-functions.xql</file>
+        <file>tei-functions.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions/epub</namespace>
-        <file>ext-epub.xql</file>
+        <file>ext-epub.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/model</namespace>
-        <file>model.xql</file>
+        <file>model.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/util</namespace>
-        <file>util.xql</file>
+        <file>util.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/xqgen</namespace>
-        <file>xqgen.xql</file>
+        <file>xqgen.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/css</namespace>
-        <file>css.xql</file>
+        <file>css.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/odd2odd</namespace>
-        <file>odd2odd.xql</file>
+        <file>odd2odd.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/counters</namespace>
-        <file>counters.xql</file>
+        <file>counters.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://existsolutions.com/teipublisher/docx</namespace>
-        <file>docx.xql</file>
+        <file>docx.xqm</file>
     </xquery>
     <xquery>
         <namespace>https://w3id.org/dts/api#</namespace>
-        <file>dts-api.xql</file>
+        <file>dts-api.xqm</file>
     </xquery>
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/config</namespace>
-        <file>generate-pmc.xql</file>
+        <file>generate-pmc.xqm</file>
     </xquery>
 </package>

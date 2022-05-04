@@ -101,9 +101,9 @@ declare function pmu:process($oddPath as xs:string, $xml as node()*, $output-roo
     let $oddFile := replace($oddPath, "^.*?([^/]+)$", "$1")
     let $name := replace($oddPath, "^.*?([^/\.]+)\.[^\.]+$", "$1")
     let $collection := replace($oddPath, "^(.*?)/[^/]+$", "$1")
-    let $uri := $output-root || "/" || $name || "-" || $mode || "-main.xql"
+    let $uri := $output-root || "/" || $name || "-" || $mode || "-main.xq"
     (: let $main :=
-        if (pmu:requires-update($oddSource, $output-root, $name || "-" || $mode || "-main.xql")) then
+        if (pmu:requires-update($oddSource, $output-root, $name || "-" || $mode || "-main.xq")) then
             let $log := util:log('WARN', "Update required: " || $name)
             let $odd := odd:get-compiled($collection, $oddFile)
             let $config := pmu:process-odd($odd, $output-root, $mode, $relPath, $config)
@@ -121,7 +121,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
 };
 
 (:~
- : Compile the given ODD into an XQuery module.
+ : Compile the given ODD into an XQuery library module.
  :
  : @param $odd the ODD document to compile
  : @param $output-root collection URI into which to write generated files
@@ -149,7 +149,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
             let $error := util:compile-query($generated?code, $output-root)
             return
                 if ($error/error) then
-                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".invalid.xql", $generated?code, "application/xquery")
+                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".invalid.xqm", $generated?code, "application/xquery")
                     return
                         map {
                             "id": $name,
@@ -159,7 +159,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
                             "code": $generated?code
                         }
                 else
-                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
+                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xqm", $generated?code, "application/xquery")
                     let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
                     let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
                     let $module := pmu:generate-module($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
@@ -194,7 +194,7 @@ declare function pmu:generate-module($name as xs:string, $uri as xs:string,
         "   return m:transform($options, $xml)&#10;" ||
         "};"
     return
-        xmldb:store($output-root, $name || "-" || $mode || "-module.xql", $mainCode, "application/xquery")
+        xmldb:store($output-root, $name || "-" || $mode || "-module.xqm", $mainCode, "application/xquery")
 };
 
 declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xqueryFile as xs:string,
@@ -214,7 +214,7 @@ declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xquer
         '}&#10;' ||
         "return m:transform($options, $xml)"
     let $stored :=
-        xmldb:store($output-root, $name || "-" || $mode || "-main.xql", $mainCode, "application/xquery")
+        xmldb:store($output-root, $name || "-" || $mode || "-main.xq", $mainCode, "application/xquery")
     let $chmod := sm:chmod($stored, "rwxrwxr-x")
     return
         $stored
