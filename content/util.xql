@@ -53,6 +53,19 @@ declare variable $pmu:MODULES := map {
             }
         ]
     },
+    "printcss": map {
+        "output": ["printcss", "web"],
+        "modules": [
+            map {
+                "uri": "http://www.tei-c.org/tei-simple/xquery/functions",
+                "prefix": "html"
+            },
+            map {
+                "uri": "http://www.tei-c.org/tei-simple/xquery/functions/printcss",
+                "prefix": "printcss"
+            }
+        ]
+    },
     "epub": map {
         "output": ["epub", "web"],
         "modules": [
