@@ -32,6 +32,7 @@ declare namespace output="http://www.w3.org/2010/xslt-xquery-serialization";
 import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
 
 declare variable $pmf:MACROS := "
+\catcode`|=4
 % set left and right margin
 \newenvironment{changemargin}[2]{%
   \begin{list}{}{%
@@ -63,6 +64,17 @@ declare function pmf:init($config as map(*), $node as node()*) {
     let $styles := if ($renditionStyles) then css:parse-css($renditionStyles) else map {}
     return
         map:merge(($config, map:entry("rendition-styles", $styles)))
+};
+
+declare function pmf:finish($config as map(*), $input) {
+    for-each($input, function($str) {
+        replace(
+            replace(
+                replace($str, "^[ \t]+\n", "&#10;", "m"), "\n{3,}", "&#10;&#10;"
+            ),
+            "^ +", "", "m"
+        )
+    }) => string-join()
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -214,6 +226,10 @@ declare function pmf:text($config as map(*), $node as node(), $class as xs:strin
     pmf:escapeChars(string-join($content))
 };
 
+declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
+    pmf:get-content($config, $node, $class, $content)
+};
+
 declare function pmf:cit($config as map(*), $node as node(), $class as xs:string+, $content as node()*, $source) {
     "\begin{aquote}{" || pmf:get-content($config, $node, $class, $source) || "}&#10;",
     pmf:get-content($config, $node, $class, $content),
@@ -323,8 +339,9 @@ declare function pmf:title($config as map(*), $node as node(), $class as xs:stri
 
 declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content, $optional as map(*)) {
     let $cols := if ($optional?columns) then $optional?columns else max($node/* ! count(*))
+    let $layout := if ($optional?layout) then $optional?layout else string-join((1 to $cols) ! "X[p]")
     return
-        "\begin{longtabu} {" || string-join((1 to $cols) ! "X[l]") || "}&#10;",
+        "\begin{longtabu} {" || $layout || "}&#10;",
         $config?apply-children($config, $node, $content),
         "\end{longtabu}&#10;"
 };
@@ -333,13 +350,15 @@ declare function pmf:row($config as map(*), $node as node(), $class as xs:string
     $config?apply-children($config, $node, $content),
     if ($node/@role = "label") then
         " \\&#10;\hline&#10;"
-    else
+    else if ($node/following-sibling::*) then
         " \\&#10;"
+    else
+        ()
 };
 
 declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
     pmf:get-content($config, $node, $class, $content),
-    (if ($node/following-sibling::*) then " &amp; " else ())
+    (if ($node/following-sibling::*) then " | " else ())
 };
 
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default,
@@ -360,7 +379,9 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                         "\protect"
                     else
                         (),
-                    "\footnote{" || pmf:get-content($config, $node, $class, $content) || "}"
+                    "\footnote",
+                    if ($label) then '[' || $label || ']' else (),
+                    "{" || pmf:get-content($config, $node, $class, $content) || "}"
                 ))
             )
     else
