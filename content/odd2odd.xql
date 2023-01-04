@@ -43,6 +43,17 @@ declare function odd:compile($inputCol as xs:string, $odd as xs:string) {
 };
 
 declare %private function odd:merge($parent as element(tei:TEI), $child as element(tei:TEI)) {
+    let $childSpecs := map:merge(
+        for $spec in $child//tei:elementSpec
+        return
+            map:entry($spec/@ident/string(), $spec)
+    )
+    let $parentSpecs := map:merge(
+        for $spec in $parent//tei:elementSpec
+        return
+            map:entry($spec/@ident/string(), $spec)
+    )
+    return
     document {
         <TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en"
             source="{document-uri(root($child))}">
@@ -93,7 +104,7 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                     (: Copy element specs which are not overwritten by child :)
                     for $spec in $parent//elementSpec
                     group by $ident := $spec/@ident
-                    let $childSpec := $child//elementSpec[@ident = $spec/@ident][@mode = "change"]
+                    let $childSpec := $childSpecs($ident)[@mode = "change"]
                     return
                         if ($childSpec) then
                             if ($childSpec/(model|modelGrp|modelSequence)) then
@@ -115,7 +126,7 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
                     (: Copy added element specs :)
                     for $spec in $child//elementSpec[.//model]
                     (: Skip specs which already exist in parent :)
-                    where empty($parent//elementSpec[@ident = $spec/@ident])
+                    where empty($parentSpecs($spec/@ident))
                     return
                         $spec
                 }
