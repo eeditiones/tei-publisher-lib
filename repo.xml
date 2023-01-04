@@ -10,6 +10,13 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="2.11.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Add output mode for print CSS</li>
+                <li>Fix and improve LaTeX mode</li>
+                <li>Optimize merging ODDs to speed up compilation</li>
+            </ul>
+        </change>
         <change version="2.10.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>@pb:mode needs to be applied before templates are processed</li>
