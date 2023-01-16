@@ -44,8 +44,8 @@ declare variable $pmu:MODULES := map {
             }
         ]
     },
-    "print": map {
-        "output": ["fo", "print"],
+    "fo": map {
+        "output": ["fo"],
         "modules": [
             map {
                 "uri": "http://www.tei-c.org/tei-simple/xquery/functions/fo",
@@ -53,8 +53,8 @@ declare variable $pmu:MODULES := map {
             }
         ]
     },
-    "printcss": map {
-        "output": ["printcss", "web"],
+    "print": map {
+        "output": ["print", "web"],
         "modules": [
             map {
                 "uri": "http://www.tei-c.org/tei-simple/xquery/functions",
@@ -80,7 +80,7 @@ declare variable $pmu:MODULES := map {
         ]
     },
     "latex": map {
-        "output": ["latex", "print"],
+        "output": ["latex"],
         "modules": [
             map {
                 "uri": "http://www.tei-c.org/tei-simple/xquery/functions/latex",

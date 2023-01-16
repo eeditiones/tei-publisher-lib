@@ -10,9 +10,9 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
-        <change version="2.11.0">
+        <change version="3.0.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
-                <li>Add output mode for print CSS</li>
+                <li>Add output mode for print CSS. BREAKING CHANGE: the "print" output mode now exclusively refers to print CSS, not FO as before!</li>
                 <li>Fix and improve LaTeX mode</li>
                 <li>Optimize merging ODDs to speed up compilation</li>
             </ul>
