@@ -487,8 +487,8 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                     else
                         (),
                     pm:set-mode($model),
-                    pm:expand-template($model, $params, $output),
                     pm:set-parameters($model),
+                    pm:expand-template($model, $params, $output),
                     <function-call name="{$fn?prefix}:{$task}">
                         {
                             if ($model/pb:template) then
