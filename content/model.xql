@@ -26,6 +26,7 @@ xquery version "3.1";
 module namespace pm="http://www.tei-c.org/tei-simple/xquery/model";
 
 import module namespace xqgen="http://www.tei-c.org/tei-simple/xquery/xqgen";
+import module namespace tmpl="http://www.tei-c.org/xquery/templates";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 declare namespace pb="http://teipublisher.com/1.0";
@@ -281,6 +282,10 @@ return
     ) else
         ()
                 </body>
+            </function>
+            <function name="model:bool">
+                <param>$expr</param>
+                <body>if ($expr instance of xs:boolean) then $expr else exists($expr)</body>
             </function>
             <function name="model:map">
                 <param>$html</param>
@@ -773,7 +778,7 @@ declare %private function pm:declare-template-functions($odd as element(), $outp
     let $pos := if ($count > 1) then $count else ()
     return (
         <comment>generated template function for element spec: {$spec/@ident/string()}</comment>,
-<code>{``[declare %private function model:template-`{translate($spec/@ident/string(), ':', '_')}``{$pos}`($config as map(*), $node as node()*, $params as map(*)) {
+<code>{``[declare %private function model:template-`{translate($spec/@ident/string(), ':', '_')}``{$pos}`($config as map(*), $context as node()*, $params as map(*)) {
     `{pm:template-body($tmpl, true())}`
 };
 ]``}</code>
@@ -796,7 +801,7 @@ declare %private function pm:template-body-element($elems as element()+, $useMap
             let $text := serialize($elem, map { "indent": false() })
             let $param := if ($useMap) then "\$params?$1" else "\$$1"
             return
-                replace($text, "\[\[([^\[\]]*?)\]\]", "{\$config?apply-children(\$config, \$node, " || $param || ")}")
+                tmpl:parse($text, "{\$config?apply-children(\$config, \$context, " || $param || ")}", $useMap)
         )
     return
         if (namespace-uri-from-QName(node-name($elems[1])) = "") then
@@ -807,7 +812,7 @@ declare %private function pm:template-body-element($elems as element()+, $useMap
 
 declare %private function pm:template-body-string($template as element(pb:template), $useMap as xs:boolean) {
     let $param := if ($useMap) then "\$params?$1" else "\$$1"
-    let $cmd := replace($template/string(), "\[\[([^\[\]]*?)\]\]", "`{string-join(\$config?apply-children(\$config, \$node, " || $param || "))}`")
+    let $cmd := tmpl:parse($template/string(), "`{string-join(\$config?apply-children(\$config, \$context, " || $param || "))}`", $useMap)
     return
         "``[" || replace($cmd, "^\s+", "", "m") || "]``"
 };
