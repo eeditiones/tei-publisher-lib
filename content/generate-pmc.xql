@@ -68,7 +68,7 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
                 if (map:contains($pis, "output")) then
                     tokenize($pis?output)
                 else
-                    ("web", "print", "latex", "epub")
+                    ("web", "print", "latex", "epub", "fo")
             return
                 map {
                     replace($odd, "^(.*?)\..*$", "$1"): $outputs
@@ -81,7 +81,7 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
 ``[import module namespace pm-`{$odd}`-`{$mode}`="http://www.tei-c.org/pm/models/`{$odd}`/`{$mode}`/module" at "../transform/`{$odd}`-`{$mode}`-module.xql";]``
         })
     let $vars :=
-        for $mode in ("web", "print", "latex", "epub", "tei")
+        for $mode in ("web", "print", "latex", "epub", "fo", "tei")
         let $cases := pmc:generate-cases($map, $mode)
         return
             ``[
