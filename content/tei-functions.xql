@@ -396,8 +396,8 @@ declare %private function pmf:combine($nodes as node()*) {
                         pmf:combine($node/node())
                     }
             case text() return
-                if (matches($node, '^(.*?\w|^)&#60;.*&#62;.*$')) then
-                    replace($node, '^(.*?\w|^)&#60;.*&#62;(.*)$', '$1$2')
+                if (matches($node, '^(.*?)&#60;.*&#62;.*$')) then
+                    replace($node, '^(.*?)&#60;.*&#62;(.*)$', '$1$2')
                 else
                     $node
             default return $node
