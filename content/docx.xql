@@ -51,6 +51,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "comment": docx:comment($comments, ?),
             "link": docx:external-link($linkRels, ?),
             "rels": $rels,
+            "document": $document,
             "properties": $properties
         }
         return (
@@ -82,6 +83,7 @@ declare function docx:process-pkg($package as document-node(), $transform as fun
         "comment": docx:comment($comments, ?),
         "link": docx:external-link($rels, ?),
         "rels": $rels,
+        "document": $document,
         "properties": $properties
     }
     return
