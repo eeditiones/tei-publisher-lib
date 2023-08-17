@@ -29,7 +29,8 @@ module namespace pmf="http://existsolutions.com/xquery/functions/tei";
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 declare variable $pmf:INLINE_ELEMENTS := (
-    "hi", "supplied", "persName", "placeName", "term"
+    "hi", "supplied", "add", "del", "persName", "placeName", "term", "foreign", "title", "ref", "unclear",
+    "sic", "corr", "reg", "distinct", "quote" 
 );
 
 declare function pmf:finish($config as map(*), $input as node()*) {
@@ -376,28 +377,53 @@ declare %private function pmf:combine($nodes as node()*) {
             case element(tei:code) | element(tei:tag) return
                 $node
             case element() return
-                if (local-name($node) = $pmf:INLINE_ELEMENTS) then
-                    if ($node/preceding-sibling::node()[1][local-name(.) = local-name($node)]) then
-                        ()
+                (: if the node being processed is a lb element preceded and followed by
+                the same element (excluding thus text nodes), do not process it :)
+                if ($node/local-name(.) eq 'lb' and 
+                $node/preceding-sibling::node()[1][not(local-name(.) eq '')]/local-name(.) = 
+                        $node/following-sibling::node()[1]/local-name(.)) 
+                        then () 
+                        else 
+                    if (local-name($node) = $pmf:INLINE_ELEMENTS) then
+                        if ($node/preceding-sibling::node()[1][local-name(.) = local-name($node)] 
+                            or
+                             (: if the node we are processing is not a text node, and it’s preceded 
+                             by an lb preceded by the same type of element as the current element, 
+                             do not process it :)
+                            $node[not(local-name(.) eq '')]/preceding-sibling::node()[1][local-name(.) = 'lb']/
+                            preceding-sibling::node()[1][local-name(.) = local-name($node)]) then
+                            ()
+                        else
+                            (: if the  current node is not  text node, and it’s followed by and lb and then
+                            a element of the same type than the current node, combine the elements :)
+                            if ($node[not(local-name(.) eq '')]/following-sibling::node()[1][local-name(.) = 'lb']/
+                                following-sibling::node()[1][local-name(.) = local-name($node)])
+                            then 
+                                element { node-name($node) } {
+                                            $node/@*,
+                                            pmf:combine($node/node()),
+                                            pmf:combine($node/following-sibling::node()[1]),
+                                            pmf:combine($node/following-sibling::node()[1]/following-sibling::node()[1]/node())
+                                        }
+                            else                            
+                                let $following := pmf:get-following($node/following-sibling::node(), local-name($node), (), ())
+                                return
+                                    if ($following) then
+                                        element { node-name($node) } {
+                                            $node/@*,
+                                            pmf:combine($node/node()),
+                                            pmf:combine($following/node())
+                                        }
+                                    else
+                                        element { node-name($node) } {
+                                            $node/@*,
+                                            pmf:combine($node/node())
+                                        }
                     else
-                        let $following := pmf:get-following($node/following-sibling::node(), local-name($node), (), ())
-                        return
-                            if ($following) then
-                                element { node-name($node) } {
-                                    $node/@*,
-                                    pmf:combine($node/node()),
-                                    pmf:combine($following/node())
-                                }
-                            else
-                                element { node-name($node) } {
-                                    $node/@*,
-                                    pmf:combine($node/node())
-                                }
-                else
-                    element { node-name($node) } {
-                        $node/@*,
-                        pmf:combine($node/node())
-                    }
+                        element { node-name($node) } {
+                            $node/@*,
+                            pmf:combine($node/node())
+                        }
             case text() return
                 if (matches($node, '^(.*?)&#60;.*&#62;.*$')) then
                     replace($node, '^(.*?)&#60;.*&#62;(.*)$', '$1$2')
