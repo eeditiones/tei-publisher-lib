@@ -380,7 +380,7 @@ declare %private function pmf:combine($nodes as node()*) {
                 (: if the node being processed is a lb element preceded and followed by
                 the same element (excluding thus text nodes), do not process it :)
                 if ($node/local-name(.) eq 'lb' and 
-                $node/preceding-sibling::node()[1][not(local-name(.) eq '')]/local-name(.) = 
+                $node/preceding-sibling::node()[1][local-name(.) ne '']/local-name(.) = 
                         $node/following-sibling::node()[1]/local-name(.)) 
                         then () 
                         else 
@@ -390,13 +390,13 @@ declare %private function pmf:combine($nodes as node()*) {
                              (: if the node we are processing is not a text node, and it’s preceded 
                              by an lb preceded by the same type of element as the current element, 
                              do not process it :)
-                            $node[not(local-name(.) eq '')]/preceding-sibling::node()[1][local-name(.) = 'lb']/
+                            $node[local-name(.) ne '']/preceding-sibling::node()[1][local-name(.) = 'lb']/
                             preceding-sibling::node()[1][local-name(.) = local-name($node)]) then
                             ()
                         else
                             (: if the  current node is not  text node, and it’s followed by and lb and then
                             a element of the same type than the current node, combine the elements :)
-                            if ($node[not(local-name(.) eq '')]/following-sibling::node()[1][local-name(.) = 'lb']/
+                            if ($node[local-name(.) ne '']/following-sibling::node()[1][local-name(.) = 'lb']/
                                 following-sibling::node()[1][local-name(.) = local-name($node)])
                             then 
                                 element { node-name($node) } {
