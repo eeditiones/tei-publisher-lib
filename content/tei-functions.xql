@@ -380,7 +380,7 @@ declare %private function pmf:combine($nodes as node()*) {
                 (: if the node being processed is a lb element preceded and followed by
                 the same element (excluding thus text nodes), do not process it :)
                 if ($node/local-name(.) eq 'lb' and 
-                $node/preceding-sibling::node()[1][not(self::text())]/local-name(.) = 
+                $node/preceding-sibling::node()[1][not(local-name(.) eq '')]/local-name(.) = 
                         $node/following-sibling::node()[1]/local-name(.)) 
                         then ()
                         else 
@@ -399,10 +399,13 @@ declare %private function pmf:combine($nodes as node()*) {
                             if ($node/following-sibling::node()[1][local-name(.) = 'lb']/
                                 following-sibling::node()[1][local-name(.) = local-name($node)])
                             then 
+                            (: create lb element :)
+                                let $lb := element lb {$node/following-sibling::node()[1]/@*}
+                                return
                                 element { node-name($node) } {
                                             $node/@*,
                                             pmf:combine($node/node()),
-                                            pmf:combine($node/following-sibling::node()[1]),
+                                            $lb,
                                             pmf:combine($node/following-sibling::node()[1]/following-sibling::node()[1]/node())
                                         }
                             else                            
