@@ -300,11 +300,6 @@ declare %private function pmu:requires-update($odd as document-node(), $collecti
  :)
 declare %private function pmu:fix-module-paths($modules as array(*)) {
     let $sysPath := system:get-module-load-path()
-    let $importPrefix := 
-        if (ends-with($sysPath, "/modules/lib/api")) then
-            "../modules/"
-        else
-            "modules/"
     return
         array {
             for $module in $modules?*
@@ -318,7 +313,7 @@ declare %private function pmu:fix-module-paths($modules as array(*)) {
                                 $sysPath || "/../../" || $module?at
                             else
                                 $sysPath || "/modules/" || $module?at,
-                        "atRel": $importPrefix || $module?at
+                        "atRel": "../modules/" || $module?at
                     })),
             map {
                 "uri": "http://www.tei-c.org/tei-simple/config",
@@ -328,7 +323,7 @@ declare %private function pmu:fix-module-paths($modules as array(*)) {
                         $sysPath || "/../../config.xqm"
                     else
                         $sysPath || "/modules/config.xqm",
-                "atRel": $importPrefix || "config.xqm"
+                "atRel": "../modules/config.xqm"
             }
         }
 };
