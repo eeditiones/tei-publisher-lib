@@ -339,7 +339,7 @@ declare function pm:load-modules($modules as array(*)) as array(*) {
 
 declare %private function pm:import-modules($modules as array(*)) {
     array:for-each($modules, function($module) {
-        <import-module prefix="{$module?prefix}" uri="{$module?uri}" at="{$module?at}"/>
+        <import-module prefix="{$module?prefix}" uri="{$module?uri}" at="{head(($module?atRel, $module?at))}"/>
     })
 };
 
@@ -610,7 +610,7 @@ declare %private function pm:get-class($ident as xs:string, $model as element(te
             '"' || $genClass ||'"'
 };
 
-declare %private function pm:lookup($modules as array(*), $task as xs:string, $arity as xs:int) as map(*)? {
+declare %private function pm:lookup($modules as array(*), $task as xs:string, $arity as xs:integer) as map(*)? {
     if (array:size($modules) > 0) then
         let $module := $modules?(array:size($modules))
         let $moduleDesc := $module?description

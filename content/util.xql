@@ -159,7 +159,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
             let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*, $trackIds)
-            let $error := util:compile-query($generated?code, $output-root)
+            let $error := util:compile-query($generated?code, $output-root || "/")
             return
                 if ($error/error) then
                     let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".invalid.xql", $generated?code, "application/xquery")
@@ -172,7 +172,9 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
                             "code": $generated?code
                         }
                 else
-                    let $xquery := xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
+                    let $xquery := 
+                        xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
+                        => substring-after(replace($output-root, "/*$", "") || "/")
                     let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
                     let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
                     let $module := pmu:generate-module($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
@@ -290,13 +292,43 @@ declare %private function pmu:requires-update($odd as document-node(), $collecti
         empty($fileModified) or $oddModified > $fileModified
 };
 
+(:~
+ : Normalize module import paths: for inspection we need an absolute path, but the final
+ : import should use a relative path. We thus provide both: "at" and "atRel".
+ :
+ : Additionally config.xqm gets imported into every module by default.
+ :)
 declare %private function pmu:fix-module-paths($modules as array(*)) {
-    array {
-        for $module in $modules?*
-        return
-            if (not(map:contains($module, "at")) or matches($module?at, "^(/|xmldb:).*")) then
-                $module
-            else
-                map:merge(($module, map:entry("at", system:get-module-load-path() || "/" || $module?at)))
-    }
+    let $sysPath := system:get-module-load-path()
+    let $importPrefix := 
+        if (ends-with($sysPath, "/modules/lib/api")) then
+            "../modules/"
+        else
+            "modules/"
+    return
+        array {
+            for $module in $modules?*
+            return
+                if (not(map:contains($module, "at")) or matches($module?at, "^(/|xmldb:).*")) then
+                    $module
+                else
+                    map:merge(($module, map {
+                        "at":
+                            if (ends-with($sysPath, "/modules/lib/api")) then
+                                $sysPath || "/../../" || $module?at
+                            else
+                                $sysPath || "/modules/" || $module?at,
+                        "atRel": $importPrefix || $module?at
+                    })),
+            map {
+                "uri": "http://www.tei-c.org/tei-simple/config",
+                "prefix": "global",
+                "at": 
+                    if (ends-with($sysPath, "/modules/lib/api")) then
+                        $sysPath || "/../../config.xqm"
+                    else
+                        $sysPath || "/modules/config.xqm",
+                "atRel": $importPrefix || "config.xqm"
+            }
+        }
 };
