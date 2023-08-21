@@ -10,6 +10,14 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="3.0.1">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>config.xqm is now available within XQuery expressions in the ODD under the "global:" prefix</li>
+                <li>Output relative import paths in generated XQuery modules</li>
+                <li>Allow relative path for extension modules loaded via configuration.xml</li>
+                <li>DOCX import: where additional attributes are specified according to the &lt;&gt; convention but are preceded by a dot, colon, etc., they were not stripped from the text content</li>
+            </ul>
+        </change>
         <change version="3.0.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Add output mode for print CSS. BREAKING CHANGE: the "print" output mode now exclusively refers to print CSS, not FO as before!</li>
