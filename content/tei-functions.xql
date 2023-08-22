@@ -201,7 +201,10 @@ declare function pmf:document($config as map(*), $node as node(), $class as xs:s
 };
 
 declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <teiHeader xmlns="http://www.tei-c.org/ns/1.0">{pmf:apply-children($config, $node, $content)}</teiHeader>
+    if (local-name($content)='teiHeader') then 
+        pmf:apply-children($config, $node, $content)
+    else
+        <teiHeader xmlns="http://www.tei-c.org/ns/1.0">{pmf:apply-children($config, $node, $content)}</teiHeader>
 };
 
 declare function pmf:title($config as map(*), $node as node(), $class as xs:string+, $content) {

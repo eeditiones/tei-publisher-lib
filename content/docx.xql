@@ -42,6 +42,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         }
         let $params := map {
             "filename": replace($path, "^.*?([^/]+)$", "$1"),
+            "rstyles": doc($unzipped || "/word/styles.xml")/w:styles,
             "styles": $styles,
             "pstyle": docx:pstyle($styles, ?),
             "cstyle": docx:cstyle($styles, ?),
@@ -51,6 +52,7 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
             "comment": docx:comment($comments, ?),
             "link": docx:external-link($linkRels, ?),
             "rels": $rels,
+            "document": $document,
             "properties": $properties
         }
         return (
@@ -73,6 +75,7 @@ declare function docx:process-pkg($package as document-node(), $transform as fun
     let $rels := $package//pkg:part[@pkg:name = "/word/_rels/document.xml.rels"]/pkg:xmlData/rel:Relationships
     let $params := map {
         "filename": "test.docx",
+        "rstyles": $package//pkg:part[@pkg:name = "/word/styles.xml"]/pkg:xmlData/w:styles,
         "styles": $styles,
         "pstyle": docx:pstyle($styles, ?),
         "cstyle": docx:cstyle($styles, ?),
@@ -82,6 +85,7 @@ declare function docx:process-pkg($package as document-node(), $transform as fun
         "comment": docx:comment($comments, ?),
         "link": docx:external-link($rels, ?),
         "rels": $rels,
+        "document": $document,
         "properties": $properties
     }
     return
