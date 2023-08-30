@@ -33,8 +33,15 @@ declare variable $pmf:INLINE_ELEMENTS := (
 );
 
 declare function pmf:finish($config as map(*), $input as node()*) {
-    pmf:create-divisions(pmf:combine($input))
-    (: $input :)
+    (: pmf:create-divisions(pmf:combine($input)) :)
+    $input
+};
+
+declare function pmf:copy($config as map(*), $node as node(), $class as xs:string+, $content) {
+    element { node-name($node) } {
+        $node/@* except $node/@xml:id,
+        pmf:apply-children($config, $node, $content)
+    }
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
