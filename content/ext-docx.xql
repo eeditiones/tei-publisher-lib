@@ -5,6 +5,8 @@ xquery version "3.1";
  :)
 module namespace pmf="http://www.tei-c.org/tei-simple/xquery/functions/docx";
 
+declare namespace tf = "http://existsolutions.com/xquery/functions/tei";
+
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 declare variable $pmf:INLINE_ELEMENTS := (
@@ -45,8 +47,8 @@ declare %private function pmf:wrap-divisions($body-nodes as node()*) {
         let $rest := $body-nodes => tail()
         return
             if ($this instance of element(tei:head)) then
-                let $level := number(head(($this/@pmf:level, 0)))
-                let $next-window-start := $this/following-sibling::tei:head[@pmf:level <= $level] => head()
+                let $level := number(head(($this/@tf:level, 0)))
+                let $next-window-start := $this/following-sibling::tei:head[@tf:level <= $level] => head()
                 let $next-window := $body-nodes[. is $next-window-start or . >> $next-window-start]
                 let $this-window-rest :=
                     if ($next-window) then
@@ -58,7 +60,7 @@ declare %private function pmf:wrap-divisions($body-nodes as node()*) {
                         <div xmlns="http://www.tei-c.org/ns/1.0">
                             <head>
                             {
-                                $this/@* except $this/@pmf:level,
+                                $this/@* except $this/@tf:level,
                                 $this/node()
                             }
                             </head>
@@ -81,14 +83,14 @@ declare %private function pmf:wrap-list($items as element()*) {
         let $item := head($items)
         return
             let $nested :=
-                pmf:get-following-nested($item/following-sibling::*, (), $item/@pmf:level)
+                pmf:get-following-nested($item/following-sibling::*, (), $item/@tf:level)
             return (
                 <item xmlns="http://www.tei-c.org/ns/1.0">
                     <p>{ $item/node() }</p>
                     {
                         if ($nested) then
                             <list>
-                            { if ($nested[1]/@pmf:type) then attribute type { $nested[1]/@pmf:type } else () }
+                            { if ($nested[1]/@tf:type) then attribute type { $nested[1]/@tf:type } else () }
                             { pmf:wrap-list($nested) }
                             </list>
                         else
@@ -105,7 +107,7 @@ declare %private function pmf:get-following($nodes as node()*, $name as xs:strin
     $level as item()?) {
     let $node := head($nodes)
     return
-        if (local-name($node) = $name and (empty($level) or number($node/@pmf:level) >= number($level))) then
+        if (local-name($node) = $name and (empty($level) or number($node/@tf:level) >= number($level))) then
             pmf:get-following(tail($nodes), $name, ($siblings, $node), $level)
         else
             $siblings
@@ -115,7 +117,7 @@ declare %private function pmf:get-following-nested($nodes as node()*, $siblings 
     $level as item()?) {
     let $node := head($nodes)
     return
-        if ($node instance of element(tei:item) and (empty($level) or number($node/@pmf:level) > number($level))) then
+        if ($node instance of element(tei:item) and (empty($level) or number($node/@tf:level) > number($level))) then
             pmf:get-following-nested(tail($nodes), ($siblings, $node), $level)
         else
             $siblings
@@ -129,10 +131,10 @@ declare %private function pmf:combine($nodes as node()*) {
                 if ($node/preceding-sibling::node()[1][self::tei:item]) then
                     ()
                 else
-                    let $sibs := pmf:get-following($node/following-sibling::*, "item", (), $node/@pmf:level)
+                    let $sibs := pmf:get-following($node/following-sibling::*, "item", (), $node/@tf:level)
                     return (
                         <list xmlns="http://www.tei-c.org/ns/1.0">
-                        { if ($node/@pmf:type) then attribute type { $node/@pmf:type } else () }
+                        { if ($node/@tf:type) then attribute type { $node/@tf:type } else () }
                         { pmf:wrap-list(($node, $sibs)) }
                         </list>
                     )
