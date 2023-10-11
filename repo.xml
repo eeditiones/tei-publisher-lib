@@ -10,6 +10,19 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="3.2.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Refactor TEI output mode: so far it was only used for docx2tei transformations.
+                    docx-specific code moved into separate module, so TEI output mode becomes usable
+                    for other scenarios.</li>
+            </ul>
+        </change>
+        <change version="3.1.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Support relative module import paths in configuration.xml</li>
+                <li>config.xqm is now exposed to the ODD under the "global" prefix</li>
+            </ul>
+        </change>
         <change version="3.0.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>config.xqm is now available within XQuery expressions in the ODD under the "global:" prefix</li>
