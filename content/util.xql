@@ -158,7 +158,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
         if (empty($module)) then
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
-            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules), $module?output?*, $trackIds)
+            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules, $config/@skip-global), $module?output?*, $trackIds)
             let $error := util:compile-query($generated?code, $output-root || "/")
             return
                 if ($error/error) then
@@ -298,7 +298,7 @@ declare %private function pmu:requires-update($odd as document-node(), $collecti
  :
  : Additionally config.xqm gets imported into every module by default.
  :)
-declare %private function pmu:fix-module-paths($modules as array(*)) {
+declare %private function pmu:fix-module-paths($modules as array(*), $skipGlobal as xs:string?) {
     let $sysPath := system:get-module-load-path()
     return
         array {
@@ -315,15 +315,18 @@ declare %private function pmu:fix-module-paths($modules as array(*)) {
                                 $sysPath || "/modules/" || $module?at,
                         "atRel": "../modules/" || $module?at
                     })),
-            map {
-                "uri": "http://www.tei-c.org/tei-simple/config",
-                "prefix": "global",
-                "at": 
-                    if (ends-with($sysPath, "/modules/lib/api")) then
-                        $sysPath || "/../../config.xqm"
-                    else
-                        $sysPath || "/modules/config.xqm",
-                "atRel": "../modules/config.xqm"
-            }
+            if ($skipGlobal) then
+                ()
+            else
+                map {
+                    "uri": "http://www.tei-c.org/tei-simple/config",
+                    "prefix": "global",
+                    "at": 
+                        if (ends-with($sysPath, "/modules/lib/api")) then
+                            $sysPath || "/../../config.xqm"
+                        else
+                            $sysPath || "/modules/config.xqm",
+                    "atRel": "../modules/config.xqm"
+                }
         }
 };
