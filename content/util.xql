@@ -158,7 +158,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
         if (empty($module)) then
             error($pmu:ERR_UNKNOWN_MODE, "output mode " || $mode || " is unknown")
         else
-            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules, $config/module), $module?output?*, $trackIds)
+            let $generated := pm:parse($odd/*, pmu:fix-module-paths($module?modules, $config/module, $config/@skip-global), $module?output?*, $trackIds)
             let $error := util:compile-query($generated?code, $output-root || "/")
             return
                 if ($error/error) then
@@ -298,7 +298,7 @@ declare %private function pmu:requires-update($odd as document-node(), $collecti
  :
  : Additionally config.xqm gets imported into every module by default.
  :)
-declare %private function pmu:fix-module-paths($modules as array(*), $globalModules as element(module)*) {
+declare %private function pmu:fix-module-paths($modules as array(*), $globalModules as element(module)*, $skipGlobal as xs:string?) {
     let $sysPath := system:get-module-load-path()
     return
         array {
@@ -315,17 +315,31 @@ declare %private function pmu:fix-module-paths($modules as array(*), $globalModu
                                 $sysPath || "/modules/" || $module?at,
                         "atRel": "../modules/" || $module?at
                     })),
-            for $module in $globalModules
-            return
+            if (exists($globalModules)) then
+                for $module in $globalModules
+                return
+                    map {
+                        "uri": $module/@uri,
+                        "prefix": $module/@prefix,
+                        "at": 
+                            if (ends-with($sysPath, "/modules/lib/api")) then
+                                $sysPath || "/../../" || $module/@at
+                            else
+                                $sysPath || "/modules/" || $module/@at,
+                        "atRel": "../modules/" || $module/@at
+                    }
+            else if ($skipGlobal) then
+                ()
+            else
                 map {
-                    "uri": $module/@uri,
-                    "prefix": $module/@prefix,
+                    "uri": "http://www.tei-c.org/tei-simple/config",
+                    "prefix": "global",
                     "at": 
                         if (ends-with($sysPath, "/modules/lib/api")) then
-                            $sysPath || "/../../" || $module/@at
+                            $sysPath || "/../../config.xqm"
                         else
-                            $sysPath || "/modules/" || $module/@at,
-                    "atRel": "../modules/" || $module/@at
+                            $sysPath || "/modules/config.xqm",
+                    "atRel": "../modules/config.xqm"
                 }
         }
 };
