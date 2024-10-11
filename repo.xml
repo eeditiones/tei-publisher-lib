@@ -10,6 +10,13 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="4.0.1">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Fix: importing full config.xqm into generated code causes failure on 
+                    windows due to large number of dependencies. We dropped this default. Instead,
+                    you can now define the modules to be made available within ODDs in configuration.xml.</li>
+            </ul>
+        </change>
         <change version="4.0.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Refactor TEI output mode: so far it was only used for docx2tei transformations.
