@@ -29,7 +29,7 @@ declare variable $xqgen:LFF := "&#10;&#10;";
 
 declare variable $xqgen:SPACES := "                                                                                                      ";
 
-declare function xqgen:generate($nodes as node()*, $indent as xs:int) {
+declare function xqgen:generate($nodes as node()*, $indent as xs:integer) {
     string-join(
         for $node in $nodes
         return
