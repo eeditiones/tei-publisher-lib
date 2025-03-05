@@ -33,9 +33,29 @@ import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counter
 
 declare variable $pmf:NOTE_COUNTER_ID := "notes-" || util:uuid();
 declare variable $pmf:ALTERNATE_COUNTER_ID := "alt-" || util:uuid();
+declare variable $pmf:LANGUAGES := map { "ar" : "rtl",
+"he" : "rtl",
+"kd" : "rtl",
+"fa" : "rtl",
+"ps" : "rtl",
+"ug" : "rtl",
+"ur" : "rtl",
+"yi" : "rtl",
+"ara" : "rtl",
+"heb" : "rtl",
+"syr" : "rtl",
+"syc" : "rtl",
+"kur" : "rtl",
+"fas" : "rtl",
+"per" : "rtl",
+"pus" : "rtl",
+"uig" : "rtl",
+"urd" : "rtl",
+"yid" : "rtl"};
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
-    let $styles := css:rendition-styles-html($config, $node)
+    let $styles := css:rendition
+declare function pmf:heading($config as map(*), $node as node(), $class as xs:string+, $content, -styles-html($config, $node)
     let $counter := counters:create($pmf:NOTE_COUNTER_ID)
     let $counter := counters:create($pmf:ALTERNATE_COUNTER_ID)
 
@@ -53,6 +73,7 @@ declare function pmf:finish($config as map(*), $input as node()*) {
     return
         $input
 };
+
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
     <p class="{$class}">
