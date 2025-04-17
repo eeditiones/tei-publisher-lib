@@ -50,7 +50,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
         <a epub:type="noteref" href="#fn{$id}" class="noteref">
         { counters:increment($html:NOTE_COUNTER_ID) }
         </a>,
-        <aside epub:type="footnote" id="fn{$id}" class="note">
+        <aside epub:type="footnote" id="fn{$id}" class="note {$class}">
         { $config?apply($config, $content/node()) }
         </aside>
     )
@@ -63,7 +63,7 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
         <a epub:type="noteref" href="#fn{$id}" class="alternate {$class}">
         { html:apply-children($config, $node, $default) }
         </a>,
-        <aside epub:type="footnote" id="fn{$id}" class="altcontent">
+        <aside epub:type="footnote" id="fn{$id}" class="altcontent {$class}">
         { html:apply-children($config, $node, $alternate) }
         </aside>
     )
