@@ -178,26 +178,28 @@ declare function pmf:graphic($config as map(*), $node as node(), $class as xs:st
 };
 
 declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
+    let $nodeId :=
+        if ($node/@xml:id) then
+            $node/@xml:id
+        else if ($node/@exist:id) then
+            $node/@exist:id
+        else
+            util:node-id($node)
+    let $id := translate($nodeId, "-.", "__")
+
+    return
     switch ($place)
         case "margin" return
             if ($label) then (
-                <span class="margin-note-ref">{$label}</span>,
-                <span class="margin-note">
+                <span class="{$class} margin-note-ref">{$label}</span>,
+                <span class="{$class} margin-note">
                     <span class="n">{$label/string()}) </span>{ $config?apply-children($config, $node, $content) }
                 </span>
             ) else
-                <span class="margin-note">
+                <span class="{$class} margin-note" id="margin_ref_{$id}">
                 { $config?apply-children($config, $node, $content) }
                 </span>
         default return
-            let $nodeId :=
-                if ($node/@xml:id) then
-                    $node/@xml:id
-                else if ($node/@exist:id) then
-                    $node/@exist:id
-                else
-                    util:node-id($node)
-            let $id := translate($nodeId, "-.", "__")
             let $nr :=
                 if ($label) then
                     $label
