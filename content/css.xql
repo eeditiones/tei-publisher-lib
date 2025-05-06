@@ -90,7 +90,7 @@ declare %private function css:global-css-by-selector($root as document-node()) {
     for $rendition in $root//tei:teiHeader/tei:encodingDesc/tei:tagsDecl/tei:rendition[@selector]
     return
         $rendition/@selector || " {&#10;" ||
-        replace($rendition/text(), "^\s*(.*)$", "&#9;$1", "m") ||
+        replace($rendition/text(), "^\s*([^\s].*)$", "&#9;$1", "m") ||
         "}"
 };
 

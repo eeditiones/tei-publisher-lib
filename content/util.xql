@@ -174,7 +174,7 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
                 else
                     let $xquery := 
                         xmldb:store($output-root, $name || "-" || $mode || ".xql", $generated?code, "application/xquery")
-                        => substring-after(replace($output-root, "/*$", "") || "/")
+                        => substring-after(replace($output-root, "/{2,}$", "") || "/")
                     let $style := pmu:extract-styles($odd, $name, $oddPath, $output-root)
                     let $main := pmu:generate-main($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
                     let $module := pmu:generate-module($name, $generated?uri, $xquery, $ext-modules, $output-root, $mode, $relPath, $style, $config)
@@ -299,12 +299,15 @@ declare %private function pmu:requires-update($odd as document-node(), $collecti
  : Additionally config.xqm gets imported into every module by default.
  :)
 declare %private function pmu:fix-module-paths($modules as array(*), $globalModules as element(module)*, $skipGlobal as xs:string?) {
-    let $sysPath := system:get-module-load-path()
+    let $sysPathFn := head((function-lookup(xs:QName("system:get-main-module-load-path"), 0), system:get-module-load-path#0))
+    let $sysPath := $sysPathFn()
     return
         array {
             for $module in $modules?*
             return
-                if (not(map:contains($module, "at")) or matches($module?at, "^(/|xmldb:).*")) then
+                if (not(map:contains($module, "at"))) then
+                    $module
+                else if (matches($module?at, "^(/|xmldb:).*")) then
                     $module
                 else
                     map:merge(($module, map {
@@ -324,6 +327,8 @@ declare %private function pmu:fix-module-paths($modules as array(*), $globalModu
                         "at": 
                             if (ends-with($sysPath, "/modules/lib/api")) then
                                 $sysPath || "/../../" || $module/@at
+                            else if (ends-with($sysPath, "/modules/lib")) then
+                                $sysPath || "/../" || $module/@at
                             else
                                 $sysPath || "/modules/" || $module/@at,
                         "atRel": "../modules/" || $module/@at
@@ -337,6 +342,8 @@ declare %private function pmu:fix-module-paths($modules as array(*), $globalModu
                     "at": 
                         if (ends-with($sysPath, "/modules/lib/api")) then
                             $sysPath || "/../../config.xqm"
+                        else if (ends-with($sysPath, "/modules/lib")) then
+                            $sysPath || "/../config.xqm"
                         else
                             $sysPath || "/modules/config.xqm",
                     "atRel": "../modules/config.xqm"
