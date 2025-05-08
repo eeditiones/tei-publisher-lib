@@ -263,7 +263,7 @@ declare %private function docx:normalize-ranges($nodes as node()*) {
                         $node
             case element(w:p) return
                 (: remove empty paragraphs :)
-                if (empty($node/w:r)) then
+                if (empty($node//w:r)) then
                     ()
                 else
                     <w:p>
