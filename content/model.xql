@@ -600,7 +600,7 @@ declare %private function pm:get-class($ident as xs:string, $model as element(te
     let $spec := $model/ancestor::tei:elementSpec[1]
     let $ident := translate($ident, ":", "_")
     let $count := count($spec//tei:model)
-    let $genClass := "tei-" || $ident || (if ($count > 1) then count($spec//tei:model[. << $model]) + 1 else ())
+    let $genClass := "tei-" || $ident || " tei-" || $ident || count($spec//tei:model[. << $model]) + 1
     return
         if ($model/tei:cssClass) then
             ('"' || $genClass ||'"', "(" || $model/tei:cssClass || ")")
@@ -629,7 +629,7 @@ declare %private function pm:expand-template($model as element(tei:model), $para
     if ($model/pb:template) then
         let $spec := $model/ancestor::tei:elementSpec[1]
         let $count := count($spec//tei:model[. << $model]) + 1
-        let $pos := if ($count > 1) then $count else ()
+        let $pos := $count
         return (
             <let var="params">
                 <expr>
@@ -770,7 +770,7 @@ declare %private function pm:declare-template-functions($odd as element(), $outp
     let $spec := $tmpl/ancestor::tei:elementSpec[1]
     let $model := $tmpl/..
     let $count := count($spec//tei:model[. << $model]) + 1
-    let $pos := if ($count > 1) then $count else ()
+    let $pos := $count
     return (
         <comment>generated template function for element spec: {$spec/@ident/string()}</comment>,
 <code>{``[declare %private function model:template-`{translate($spec/@ident/string(), ':', '_')}``{$pos}`($config as map(*), $node as node()*, $params as map(*)) {

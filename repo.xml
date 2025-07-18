@@ -10,6 +10,12 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="5.0.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Breaking change: from every model two classes are assigned automatically for TEI elements - 
+                    one named after the element itself, e.g. `tei-dateline` and another, suffixed with the sequential number of the model, e.g. `tei-dateline1`. Previously the first model had the class without any number assigned.</li>
+            </ul>
+        </change>
         <change version="4.0.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Fix: importing full config.xqm into generated code causes failure on 
