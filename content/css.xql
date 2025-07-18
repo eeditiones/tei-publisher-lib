@@ -61,11 +61,7 @@ declare function css:generate-css($root as document-node(), $output as xs:string
         let $spec := $model/ancestor::tei:elementSpec[1]
         let $count := count($spec//tei:model)
         for $rend in $model/tei:outputRendition
-        let $className :=
-            if ($count > 1) then
-                $spec/@ident || count($spec//tei:model[. << $model]) + 1
-            else
-                $spec/@ident/string()
+        let $className := $spec/@ident || count($spec//tei:model[. << $model]) + 1
         let $class :=
             if ($rend/@scope) then
                 translate($className, ":", "_") || ":" || $rend/@scope
