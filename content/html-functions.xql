@@ -170,6 +170,7 @@ declare function pmf:graphic($config as map(*), $node as node(), $class as xs:st
     $width, $height, $scale, $title) {
     let $style := if ($width) then "width: " || $width || "; " else ()
     let $style := if ($height) then $style || "height: " || $height || "; " else $style
+    let $style := if ($scale) then $style || "scale: " || $scale || "; " else $style
     return
         <img src="{$url}" class="{$class}" title="{$title}">
         { if ($node/@xml:id) then attribute id { $node/@xml:id } else () }
