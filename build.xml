@@ -9,9 +9,9 @@
     <target name="clean">
         <delete dir="${build}" />
     </target>
-    <target name="xar">
+    <target name="xar" depends="clean" >
         <mkdir dir="${build.dir}" />
-        <zip basedir="." destfile="${build.dir}/${project.app}-${project.version}.xar">
+        <zip basedir="." destfile="${build.dir}/${project.app}.xar">
             <exclude name="${build.dir}/**" />
             <exclude name=".github/**" />
         </zip>
