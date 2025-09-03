@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project default="all" name="tei-publisher-lib">
-    <xmlproperty file="expath-pkg.xml"/>
-    <property name="project.version" value="${package(version)}"/>
-    <property name="project.app" value="tei-publisher-lib"/>
-    <property name="build.dir" value="build"/>
-    <target name="all" depends="xar"/>
-    <target name="rebuild" depends="clean,all"/>
+    <xmlproperty file="expath-pkg.xml" />
+    <property name="project.version" value="${package(version)}" />
+    <property name="project.app" value="tei-publisher-lib" />
+    <property name="build.dir" value="build" />
+    <target name="all" depends="xar" />
+    <target name="rebuild" depends="clean,all" />
     <target name="clean">
-        <delete dir="${build}"/>
+        <delete dir="${build}" />
     </target>
     <target name="xar">
-        <mkdir dir="${build.dir}"/>
-        <zip basedir="." destfile="${build.dir}/${project.app}-${project.version}.xar" excludes="${build.dir}/*"/>
+        <mkdir dir="${build.dir}" />
+        <zip basedir="." destfile="${build.dir}/${project.app}-${project.version}.xar">
+            <exclude name="${build.dir}/**" />
+            <exclude name=".github/**" />
+        </zip>
     </target>
 </project>
