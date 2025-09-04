@@ -36,7 +36,13 @@ jobs:
       - name: Install Test Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bats
+          sudo apt-get install -y libxml2-utils bats
+
+     # sanity check
+      - name: Ensure all XML files are well-formed
+        run: |
+          xmllint --noout \
+            $(find . -type f -name '*.xml')
 
       # Build
       - name: Install Java
@@ -68,8 +74,8 @@ jobs:
           done
 
       # Test
-      - name: Run smoke test
-        run: bats --tap test/*.bats
+      - name: Run smoke tests
+        run: bats --tap test/01-*.bats
   
       - name: debug logs
         if: failure()
@@ -87,3 +93,18 @@ jobs:
         with:
           name: tp-lib-exist-${{ matrix.exist-version }}-log
           path: exist.log
+      
+      - name: Run xqsuite tests
+        run: bats --tap test/02-*.bats
+  
+      # only failure and error have @type 
+      - name: show xqsuite failures
+        if: failure()
+        run: xmllint --xpath '//*/@type/../..' build/testsuite.xml
+
+      - name: Upload xqs-report artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tp-lib-exist-${{ matrix.exist-version }}-xqs
+          path: build/testsuite.xml
