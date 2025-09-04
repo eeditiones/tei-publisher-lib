@@ -1,7 +1,17 @@
 #!/usr/bin/env bats
 
 # Configuration
-APP_BASE=${APP_BASE:-http://127.0.0.1:8080/exist/rest/db/system/repo/tei-publisher-lib-4.0.3}
+# If APP_BASE is not set, derive the version from expath-pkg.xml and construct the repo URL accordingly.
+if [ -z "${APP_BASE:-}" ]; then
+  # Try to read the package version from expath-pkg.xml (works without namespaces)
+  pkg_ver=$(xmllint --xpath 'string(//*[local-name()="package"]/@version)' expath-pkg.xml 2>/dev/null || true)
+  if [ -n "$pkg_ver" ]; then
+    APP_BASE="http://127.0.0.1:8080/exist/rest/db/system/repo/tei-publisher-lib-$pkg_ver"
+  else
+    # Fallback if xmllint is unavailable or expath-pkg.xml not readable
+    APP_BASE="http://127.0.0.1:8080/exist/rest/db/system/repo/tei-publisher-lib"
+  fi
+fi
 RUNNER_PATH=${RUNNER_PATH:-/test/test-runner.xq}
 CREDENTIALS=${CREDENTIALS:-admin:}
 
