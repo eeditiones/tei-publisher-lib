@@ -8,3 +8,66 @@ This repository contains the core server-side library of [TEI Publisher](https:/
 ## License
 
 This software is licensed under the GPLv3 license. If you need a different license: please contact [us](mailto:mail@existsolutions.com) and we'll find an arrangement.
+
+## Testing
+
+This repository includes built‑in XQSuite unit tests (XQuery‑level) and optional Bats shell tests for CI and local automation.
+
+- Prerequisites: Bats (>=1.8), curl. For the XML/XPath suite, xmllint (libxml2-utils) is required.
+- Optional: a running eXist-db container as used by the smoke tests.
+
+### XQSuite (in eXist‑db)
+
+XQSuite is eXist‑db’s native unit testing framework for XQuery. See the [documentation](https://exist-db.org/exist/apps/doc/xqsuite)
+
+In this repository:
+
+- The XQSuite tests live in `test/ts-*.xqm` files (one module per area), e.g. `ts-css.xqm`, `ts-latex.xqm`, `ts-html.xqm`, ...
+- Each module defines `%test:*` annotated functions that exercise the corresponding library in `content/`.
+- `test/test-runner.xq` collects all `ts-*.xqm` modules and returns a JUnit‑style XML report.
+
+Run XQSuite inside eXist:
+
+- In a browser: open `http://127.0.0.1:8080/exist/rest/db/system/repo/tei-publisher-lib-4.0.3/test/test-runner.xq` (adjust base path as needed). You will get a JUnit XML report.
+- With curl:
+  - `curl -fsS -u admin: -H 'Accept: application/xml' 'http://127.0.0.1:8080/exist/rest/db/system/repo/tei-publisher-lib-4.0.3/test/test-runner.xq'`
+- From eXide: open `test/test-runner.xq` and run it; the result is the same JUnit XML.
+
+Naming scheme:
+
+- Test modules are named `ts-<component>.xqm`, e.g. `ts-fo.xqm`, `ts-tei.xqm`.
+- Their module namespaces follow `http://existsolutions.com/apps/tei-publisher-lib/ts-<component>` so they are easy to map back to the area under test.
+
+### Bats Test Suites (optional, for CI)
+
+- `test/01-smoke.bats`: Container smoke tests. Verifies the container responds, is healthy, and that the TEI Publisher Library package is deployed without errors. These tests assume a local Docker container named `exist` listening on port `8080`.
+
+- `test/02-xqsuite.bats`: Calls the XQSuite test runner endpoint and parses the JUnit XML with shell tools. It saves the JUnit report returned by the first endpoint check to `build/testsuite.xml` for inspection/artifacts. Fails the job if any testcase fails.
+
+### Environment
+
+The HTTP tests can be configured via environment variables (defaults shown):
+
+- `APP_BASE`: Base URL to the deployed library app, e.g. `http://127.0.0.1:8080/exist/rest/db/system/repo/tei-publisher-lib-4.0.3`
+- `RUNNER_PATH`: Path to the XQSuite runner module, default `/test/test-runner.xq`
+- `CREDENTIALS`: Basic auth credentials in the form `user:password`, default `admin:`
+
+### Running
+
+- Run a specific suite: `bats test/02-xqsuite.bats`
+- Run all tests: `bats test`
+
+On success, the XQSuite tests print a header like:
+
+```
+# XQSuite JUnit: tests=… failures=… errors=… pending=… time=… at …
+# Testcases:
+#  - some-test-name: ok
+#  - another-test: FAIL — message type text
+```
+
+The `02-xqsuite.bats` suite writes the last XML report to `build/testsuite.xml` for diagnostics or CI artifacts.
+
+### Continuous Integration
+
+GitHub Actions (`.github/workflows/build.yml`) runs the Bats suites in CI. The shell tests are optional for local development—you can run the XQSuite directly in eXist as shown above. On CI  `build/testsuite.xml` can is uploaded as an artifact for easier debugging of failures.
