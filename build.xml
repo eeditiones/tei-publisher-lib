@@ -7,7 +7,7 @@
     <target name="all" depends="xar" />
     <target name="rebuild" depends="clean,all" />
     <target name="clean">
-        <delete dir="${build}" />
+        <delete dir="${build.dir}" failonerror="false" />
     </target>
     <target name="xar" depends="clean" >
         <mkdir dir="${build.dir}" />
