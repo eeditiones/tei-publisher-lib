@@ -91,3 +91,27 @@ function th:finish-returns-input() as xs:boolean {
   let $in := (<a/>, <b/>)
   return deep-equal(pmf:finish(map {}, $in), $in)
 };
+
+declare
+  %test:assertTrue
+function th:add-language-attributes-returns-rtl-and-lang() as xs:boolean {
+  let $in := <a xml:lang="ar"/>
+  let $out := <a>{pmf:add-language-attributes($in)}</a>
+  return deep-equal(<a dir="rtl" lang="ar"></a>, $out)
+};
+
+declare
+  %test:assertTrue
+function th:add-language-attributes-returns-ltr-and-lang() as xs:boolean {
+  let $in := <a xml:lang="cs-CZ"/>
+  let $out := <a>{pmf:add-language-attributes($in)}</a>
+  return deep-equal(<a dir="ltr" lang="cs-CZ"></a>, $out)
+};
+
+declare
+  %test:assertTrue
+function th:add-language-attributes-returns-nothing() as xs:boolean {
+  let $in := <a lang="ar"/>
+  let $out := <a>{pmf:add-language-attributes($in)}</a>
+  return deep-equal(<a></a>, $out)
+};
