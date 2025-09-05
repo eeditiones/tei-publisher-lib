@@ -13,9 +13,6 @@ This software is licensed under the GPLv3 license. If you need a different licen
 
 This repository includes built‑in XQSuite unit tests (XQuery‑level) and optional Bats shell tests for CI and local automation.
 
-- Prerequisites: Bats (>=1.8), curl. For the XML/XPath suite, xmllint (libxml2-utils) is required.
-- Optional: a running eXist-db container as used by the smoke tests.
-
 ### XQSuite (in eXist‑db)
 
 XQSuite is eXist‑db’s native unit testing framework for XQuery. See the [documentation](https://exist-db.org/exist/apps/doc/xqsuite)
@@ -40,6 +37,9 @@ Naming scheme:
 
 ### Bats Test Suites (optional, for CI)
 
+- Prerequisites: [Bats](https://bats-core.readthedocs.io/en/stable/) , curl. For the XML/XPath suite, xmllint (libxml2-utils) is required.
+- a running eXist-db container as used by the smoke tests.
+
 - `test/01-smoke.bats`: Container smoke tests. Verifies the container responds, is healthy, and that the TEI Publisher Library package is deployed without errors. These tests assume a local Docker container named `exist` listening on port `8080`.
 
 - `test/02-xqsuite.bats`: Calls the XQSuite test runner endpoint and parses the JUnit XML with shell tools. It saves the JUnit report returned by the first endpoint check to `build/testsuite.xml` for inspection/artifacts. Fails the job if any testcase fails.
@@ -55,7 +55,7 @@ The HTTP tests can be configured via environment variables (defaults shown):
 ### Running
 
 - Run a specific suite: `bats test/02-xqsuite.bats`
-- Run all tests: `bats test`
+- Run all tests: `bats test/*.bats`
 
 On success, the XQSuite tests print a header like:
 

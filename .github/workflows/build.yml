@@ -95,6 +95,12 @@ jobs:
           path: exist.log
       
       - name: Run xqsuite tests
+        if: matrix.experimental != true
+        run: bats --tap test/02-*.bats
+
+      - name: Run xqsuite tests (expect failure)
+        if: matrix.experimental == true
+        continue-on-error: true
         run: bats --tap test/02-*.bats
   
       # only failure and error have @type 
