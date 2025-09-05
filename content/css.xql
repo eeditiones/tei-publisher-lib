@@ -38,7 +38,7 @@ declare function css:parse-css($css as xs:string) {
                 map:entry($match/fn:group[1]/string(), $match/fn:group[2]/string())
         )
         for $selector in $selectors
-        let $selector := replace($selector, "^\.?(.*)$", "$1")
+        let $selector := replace($selector, "^\.?(.+)$", "$1")
         return
             map:entry($selector, $styles)
     )
@@ -107,12 +107,24 @@ declare %private function css:global-css-by-rendition($root as document-node(), 
 };
 
 declare function css:map-rend-to-class($node as node()*) {
-    tokenize($node/@rend, "[\s,]+")
+    let $rend := string($node/@rend)
+    return
+        if (exists($node/@rend) and matches($rend, "[^\s,]")) then
+            tokenize($rend, "[\s,]+")
+        else
+            ()
 };
 
 declare function css:get-rendition($node as node()*, $class as xs:string+) {
     $class,
-    for $rend in tokenize($node/@rendition, "[\s,]+")
+    for $rend in (
+        let $rendAttr := string($node/@rendition)
+        return
+            if (exists($node/@rendition) and matches($rendAttr, "[^\s,]")) then
+                tokenize($rendAttr, "[\s,]+")
+            else
+                ()
+    )
     return
         if (starts-with($rend, "#")) then
             'document_' || substring-after($rend,'#')
@@ -129,7 +141,11 @@ declare function css:rendition-styles($config as map(*), $node as node()*) as ma
             map:merge(
                 let $doc := ($config?parameters?root, root($node[1]))[1]
                 for $renditionDef in $renditions
-                for $rendition in tokenize($renditionDef, "\s+")
+                for $rendition in (
+                    let $val := string($renditionDef)
+                    return
+                        if (matches($val, "\\S")) then tokenize($val, "\\s+") else ()
+                )
                 let $id := substring-after($rendition, "#")
                 for $def in $doc/id($id)
                 return

@@ -1,0 +1,110 @@
+# This workflow builds a xar archive, deploys it into exist and execute a simple smoke test.
+
+name: Build and Test
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    strategy:
+       fail-fast: false
+       matrix:
+        # 7.0.0-SNAPSHOT and 6.4.0 created
+         exist-version: [5.2.0, 6.2.0, release]
+         java-version: [11]
+         experimental: [false]
+         include:
+           - exist-version: latest
+             java-version: 21
+             experimental: true
+
+    steps:
+      # Checkout code
+      - uses: actions/checkout@v5
+
+      # Speed up apt-get installs
+      - name: Disable man-db to make package install and removal faster
+        run: |
+          echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
+          sudo dpkg-reconfigure man-db
+          
+      - name: Install Test Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils bats
+
+     # sanity check
+      - name: Ensure all XML files are well-formed
+        run: |
+          xmllint --noout \
+            $(find . -type f -name '*.xml')
+
+      # Build
+      - name: Install Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java-version }}
+      - run: ant
+
+      # For private repos use secret org token
+      - name: authenticate gh cli
+        timeout-minutes: 1
+        run: gh auth status
+
+      # Install
+      - name: Start exist-ci containers
+        run: |
+          docker run -dit -p 8080:8080 -v ${{ github.workspace }}/build:/exist/autodeploy \
+          --name exist --rm --health-interval=1s --health-start-period=2s \
+          duncdrum/existdb:${{ matrix.exist-version }}
+
+      - name: Wait for server to start
+        timeout-minutes: 1 
+        run: |
+          echo "Waiting for server to start..."
+          until docker logs exist 2>&1 | grep -q "Server has started"; do
+            echo "Still waiting..."
+            sleep 8
+          done
+
+      # Test
+      - name: Run smoke tests
+        run: bats --tap test/01-*.bats
+  
+      - name: debug logs
+        if: failure()
+        run: docker logs exist | grep 'ERROR'
+
+      - name: Copy logs on failure
+        if: failure()
+        run: |
+          echo "Copying logs..."
+          docker cp exist:/exist/logs/exist.log ./exist.log
+
+      - name: Upload logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tp-lib-exist-${{ matrix.exist-version }}-log
+          path: exist.log
+      
+      - name: Run xqsuite tests
+        run: bats --tap test/02-*.bats
+  
+      # only failure and error have @type 
+      - name: show xqsuite failures
+        if: failure()
+        run: xmllint --xpath '//*/@type/../..' build/testsuite.xml
+
+      - name: Upload xqs-report artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tp-lib-exist-${{ matrix.exist-version }}-xqs
+          path: build/testsuite.xml
