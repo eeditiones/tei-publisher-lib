@@ -59,7 +59,6 @@ declare function css:generate-css($root as document-node(), $output as xs:string
         "&#10;&#10;/* Model rendition styles */&#10;",
         for $model in $root//tei:model[tei:outputRendition]
         let $spec := $model/ancestor::tei:elementSpec[1]
-        let $count := count($spec//tei:model)
         for $rend in $model/tei:outputRendition
         let $className := $spec/@ident || count($spec//tei:model[. << $model]) + 1
         let $class :=

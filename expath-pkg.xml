@@ -31,6 +31,10 @@
         <file>ext-docx.xql</file>
     </xquery>
     <xquery>
+        <namespace>http://www.tei-c.org/tei-simple/xquery/markdown</namespace>
+        <file>markdown-functions.xql</file>
+    </xquery>
+    <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/model</namespace>
         <file>model.xql</file>
     </xquery>
