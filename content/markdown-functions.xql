@@ -118,7 +118,13 @@ declare %private function pmf:leading-spaces($nodes as node()*) {
     return
         typeswitch ($node)
             case text() return
-                text { replace(replace($node, "^\s+", "", "m"), "\n", "") }
+                text { 
+                    (: remove leading spaces :)
+                    replace($node, "^\s+", "", "m")
+                    (: replace remaining newlines with spaces :)
+                    => replace("\n", " ", "m")
+                    (: replace($node, "(\S)\n\s+", "$1 ") :)
+                }
             case element(root) return
                 pmf:leading-spaces($node/node())
             case element() return
@@ -143,16 +149,6 @@ declare %private function pmf:readd-spaces($nodes as node()*) {
                 $node
             default return
                 pmf:readd-spaces($node/node())
-};
-
-declare %private function pmf:no-newlines($text as node()*) {
-    for $t in $text
-    return
-        typeswitch ($t)
-            case text() return
-                text { replace($t, "\n+", "") }
-            default return
-                $t
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {

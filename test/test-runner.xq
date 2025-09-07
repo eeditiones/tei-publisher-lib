@@ -38,5 +38,6 @@ test:suite((
   inspect:module-functions(xs:anyURI("ts-dts.xqm")),
   inspect:module-functions(xs:anyURI("ts-odd.xqm")),
   inspect:module-functions(xs:anyURI("ts-xqgen.xqm")),
-  inspect:module-functions(xs:anyURI("ts-model.xqm"))
+  inspect:module-functions(xs:anyURI("ts-model.xqm")),
+  inspect:module-functions(xs:anyURI("ts-markdown.xqm"))
 ))
