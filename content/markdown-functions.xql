@@ -32,6 +32,14 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 declare variable $pmf:INDENT := "    ";
 
+(:~
+ : Initialize the configuration map. Read CSS styles from the ODD and add
+ : them to the configuration map as "styles".
+ :
+ : @param config The configuration map.
+ : @param node The node.
+ : @return The initialized configuration map.
+ :)
 declare function pmf:init($config as map(*), $node as node()*) {
     let $css := css:generate-css(doc($config?odd), "md", $config?odd)
     let $styles := css:parse-css($css)
@@ -45,7 +53,7 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
 
 (:~
  : Process output by 1) combining consecutive text nodes, 2) removing leading spaces, 
- : 3) adding back spaces where needed.
+ : 3) adding back spaces where needed, 4) outputting footnotes below text.
  :
  : @param config The configuration map.
  : @param input The input nodes.
@@ -54,7 +62,8 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
 declare function pmf:finish($config as map(*), $input as node()*) {
     let $text := (
         pmf:normalize-text($input) => pmf:leading-spaces() => pmf:readd-spaces(),
-        for $note in $input/descendant-or-self::pmf:note
+        (: Output footnotes below text :)
+        for $note in $input/descendant-or-self::note
         return (
             string-join(($note/@n/string(), ": ", $note/string()), ''),
             "&#10;"
@@ -109,7 +118,7 @@ declare %private function pmf:leading-spaces($nodes as node()*) {
     return
         typeswitch ($node)
             case text() return
-                text { replace($node, "^\s+", "", "m") }
+                text { replace(replace($node, "^\s+", "", "m"), "\n", "") }
             case element(root) return
                 pmf:leading-spaces($node/node())
             case element() return
@@ -134,6 +143,16 @@ declare %private function pmf:readd-spaces($nodes as node()*) {
                 $node
             default return
                 pmf:readd-spaces($node/node())
+};
+
+declare %private function pmf:no-newlines($text as node()*) {
+    for $t in $text
+    return
+        typeswitch ($t)
+            case text() return
+                text { replace($t, "\n+", "") }
+            default return
+                $t
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
