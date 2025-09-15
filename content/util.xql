@@ -96,6 +96,15 @@ declare variable $pmu:MODULES := map {
                 "prefix": "tei"
             }
         ]
+    },
+    "markdown": map {
+        "output": ["markdown", "plain"],
+        "modules": [
+            map {
+                "uri": "http://www.tei-c.org/tei-simple/xquery/markdown",
+                "prefix": "markdown"
+            }
+        ]
     }
 };
 
