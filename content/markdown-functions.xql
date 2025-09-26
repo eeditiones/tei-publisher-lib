@@ -52,7 +52,7 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
 };
 
 (:~
- : Process output by 1) combining consecutive text nodes, 2) removing leading spaces, 
+ : Process output by 1) combining consecutive text nodes, 2) removing leading spaces,
  : 3) adding back spaces where needed, 4) outputting footnotes below text.
  :
  : @param config The configuration map.
@@ -61,16 +61,30 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
  :)
 declare function pmf:finish($config as map(*), $input as node()*) {
     let $text := (
-        pmf:normalize-text($input) => pmf:leading-spaces() => pmf:readd-spaces(),
+        <root>{pmf:remove-notes($input)}</root> => pmf:normalize-text() => pmf:leading-spaces() => pmf:readd-spaces(),
         (: Output footnotes below text :)
-        for $note in $input/descendant-or-self::note
-        return (
-            string-join(($note/@n/string(), ": ", $note/string()), ''),
-            "&#10;"
-        )
+        for $note at $pos in $input/descendant-or-self::note
+        let $content := pmf:normalize-text($note/node()) => pmf:leading-spaces() => pmf:readd-spaces()
+        return
+            string-join(("&#10;&#10;", $note/@n/string(), ": ",  $content), '')
     )
     return
-        string-join($text, "")
+        replace(string-join($text, ""), "\n{3,}", "&#10;&#10;")
+};
+
+declare %private function pmf:remove-notes($nodes as node()*) {
+    for $node in $nodes
+    return
+        typeswitch($node)
+            case element(note) return
+                ()
+            case element() return
+                element {node-name($node)} {
+                    $node/@*,
+                    pmf:remove-notes($node/node())
+                }
+            default return
+                $node
 };
 
 (:~
@@ -83,6 +97,8 @@ declare %private function pmf:normalize-text($nodes as node()*) {
     for $node in $nodes
     return
         typeswitch($node)
+            case element(note) return
+                ()
             case element() return
                 element {node-name($node)} {
                     $node/@*,
@@ -118,7 +134,7 @@ declare %private function pmf:leading-spaces($nodes as node()*) {
     return
         typeswitch ($node)
             case text() return
-                text { 
+                text {
                     (: remove leading spaces :)
                     replace($node, "^\s+", "", "m")
                     (: replace remaining newlines with spaces :)
@@ -137,8 +153,6 @@ declare %private function pmf:readd-spaces($nodes as node()*) {
     for $node in $nodes
     return
         typeswitch ($node)
-            case element(note) return
-                ()
             case element(indent) return
                 string($node/@indent)
             case element(lb) return
@@ -219,8 +233,8 @@ declare function pmf:listItem($config as map(*), $node as node(), $class as xs:s
         ) else (
             <lb/>,
             <indent indent="{$config?indent}"/>,
-            text { 
-                if ($config?listType = "ordered") then count($node/preceding-sibling::*) + 1 || ". " else "+ " 
+            text {
+                if ($config?listType = "ordered") then count($node/preceding-sibling::*) + 1 || ". " else "+ "
             },
             $config?apply-children($newConfig, $node, $content)
         )
@@ -297,8 +311,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
         text { $nr },
         <note n="{$nr}">
         {
-            $config?apply-children($config, $node, $content),
-            <lb/>
+            $config?apply-children($config, $node, $content)
         }
         </note>
     )
@@ -337,7 +350,7 @@ declare function pmf:escapeChars($text as item()*) {
         case attribute() return
             data($text)
         default return
-            $text
+            text { $text }            
 };
 
 declare function pmf:cit($config as map(*), $node as node(), $class as xs:string+, $content, $source) {

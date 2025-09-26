@@ -56,7 +56,7 @@ function tmd:inline-css-content() as xs:string {
 };
 
 declare
-    %test:assertEquals("[^1][^1]: Hello&#10;")
+    %test:assertEquals("[^1]&#10;&#10;[^1]: Hello")
 function tmd:note() as xs:string {
     let $note := pmf:note($tmd:CFG, <n/>, ("note"), "Hello", "footnote", "1")
     return
@@ -64,11 +64,19 @@ function tmd:note() as xs:string {
 };
 
 declare
-    %test:assertEquals("Hello[^1]World.&#10;&#10;[^1]: Hello&#10;")
+    %test:assertEquals("Hello[^1] World.&#10;&#10;[^1]: Hello")
 function tmd:note-in-paragraph() as xs:string {
     let $note := pmf:note($tmd:CFG, <n/>, ("note"), "Hello", "footnote", "1")
     let $paragraph := pmf:paragraph($tmd:CFG, <n/>, ("paragraph"), 
         (text { "Hello" }, $note, text { " World." }))
     return
         pmf:finish($tmd:CFG, $paragraph)
+};
+
+declare
+    %test:assertEquals("[^a]&#10;&#10;[^a]: Hello")
+function tmd:note-custom-marker() as xs:string {
+    let $note := pmf:note($tmd:CFG, <n/>, ("note"), "Hello", "footnote", "a")
+    return
+        pmf:finish($tmd:CFG, $note)
 };
