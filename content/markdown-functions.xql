@@ -41,7 +41,7 @@ declare variable $pmf:INDENT := "    ";
  : @return The initialized configuration map.
  :)
 declare function pmf:init($config as map(*), $node as node()*) {
-    let $css := css:generate-css(doc($config?odd), "md", $config?odd)
+    let $css := pmf:load-styles($config, doc($config?odd)) => string-join()
     let $styles := css:parse-css($css)
     return
         map:merge(($config, map:entry("styles", $styles), map:entry("indent", "")))
@@ -69,9 +69,41 @@ declare function pmf:finish($config as map(*), $input as node()*) {
             string-join(("&#10;&#10;", $note/@n/string(), ": ",  $content), '')
     )
     return
-        replace(string-join($text, ""), "\n{3,}", "&#10;&#10;")
+        replace(
+            replace(
+                replace(string-join($text, ""), "\n{3,}", "&#10;&#10;"),
+                "_\s*(\S.*?)\s*_", "_$1_", "m"
+            ),
+            "\*\*\s*(\S.*?)\s*\*\*", "**$1**", "m"
+        )
 };
 
+(:~
+ : Recursively load styles from the ODD and inherited ODDs.
+ :
+ : @param config The configuration map.
+ : @param odd The ODD.
+ : @return The styles.
+ :)
+declare %private function pmf:load-styles($config as map(*), $odd as document-node()) {
+    let $css := css:generate-css($odd, "web", $config?odd)
+    return (
+        $css,
+        if ($odd//tei:schemaSpec/@source) then
+            let $parent := replace(document-uri($odd), "/[^/]+$", "") || "/" || $odd//tei:schemaSpec/@source
+            return
+                pmf:load-styles($config, doc($parent))
+        else
+            ()
+    )
+};
+
+(:~
+ : Remove notes from the node tree.
+ :
+ : @param nodes The nodes to remove notes from.
+ : @return The nodes with notes removed.
+ :)
 declare %private function pmf:remove-notes($nodes as node()*) {
     for $node in $nodes
     return
@@ -325,9 +357,9 @@ declare function pmf:inline($config as map(*), $node as node(), $class as xs:str
             if ($styles("font-weight") = "bold") then
                 (text { "**" }, $config?apply-children($config, $node, $content), text { "**" })
             else if ($styles("font-style") = "italic") then
-                (text { "*" }, $config?apply-children($config, $node, $content), text { "*" })
+                (text { "_" }, $config?apply-children($config, $node, $content), text { "_" })
             else if ($styles("text-decoration") = "line-through") then
-                (text { "~~" }, $config?apply-children($config, $node, $content), text { "~~" })
+                (text { "<del>" }, $config?apply-children($config, $node, $content), text { "</del>" })
             else
                 $config?apply-children($config, $node, $content)
         else
@@ -440,14 +472,14 @@ declare function pmf:match($config as map(*), $node as node(), $content) {
 
 declare %private function pmf:get-before($config as map(*), $classes as xs:string*) {
     for $class in $classes
-    let $before := $config?styles?($class || ":before")
+    let $before := head(($config?styles?($class || ":before"), $config?styles?($class || "::before")))
     return
         if (exists($before)) then text { $before?content } else ()
 };
 
 declare %private function pmf:get-after($config as map(*), $classes as xs:string*) {
     for $class in $classes
-    let $after := $config?styles?($class || ":after")
+    let $after := head(($config?styles?($class || ":after"), $config?styles?($class || "::after")))
     return
         if (exists($after)) then text { $after?content } else ()
 };

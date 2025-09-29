@@ -11,6 +11,8 @@ declare variable $tmd:CFG :=
         "indent": "",
         "styles": map {
             "bold": map { "font-weight": "bold" },
+            "italic": map { "font-style": "italic" },
+            "del": map { "text-decoration": "line-through" },
             "gap:before": map { "content": "[…]" }
         }
     };
@@ -45,6 +47,27 @@ declare
     %test:assertEquals("**Hello**")
 function tmd:inline-bold() as xs:string {
     pmf:inline($tmd:CFG, <n/>, ("bold"), "Hello")
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("**Hello world**")
+function tmd:inline-bold-with-leading-space() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:inline($tmd:CFG, <n/>, ("bold"), " Hello world")}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("_Hello world_")
+function tmd:inline-emphasis-with-trailing-space() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:inline($tmd:CFG, <n/>, ("italic"), "Hello world  ")}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("<del>Hello</del>")
+function tmd:inline-erased() as xs:string {
+    pmf:inline($tmd:CFG, <n/>, ("del"), "Hello")
     => string-join("")
 };
 
