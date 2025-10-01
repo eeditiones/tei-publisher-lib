@@ -308,12 +308,12 @@ declare function pmf:figure($config as map(*), $node as node(), $class as xs:str
     <lb/>,
     $config?apply-children($config, $node, $content),
     if ($title) then (
-        <lb/>,
-        text { "*" },
+        <lb2/>,
+        text { "_" },
         $config?apply-children($config, $node, $title),
-        text { "*" }
+        text { "_" }
     ) else (),
-    <lb/>
+    <lb2/>
 };
 
 declare function pmf:graphic($config as map(*), $node as node(), $class as xs:string+, $content, $url,
@@ -468,6 +468,19 @@ declare function pmf:match($config as map(*), $node as node(), $content) {
     text { "==" },
     $config?apply-children($config, $node, $content),
     text { "==" }
+};
+
+declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
+    $config?apply-children($config, $node, $content)
+};
+
+declare function pmf:code($config as map(*), $node as node(), $class as xs:string+, $content, $language) {
+    text { string-join(("```", $language)) },
+    <lb/>,
+    $config?apply-children($config, $node, $content),
+    <lb/>,
+    text { "```" },
+    <lb2/>
 };
 
 declare %private function pmf:get-before($config as map(*), $classes as xs:string*) {

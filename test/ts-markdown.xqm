@@ -103,3 +103,24 @@ function tmd:note-custom-marker() as xs:string {
     return
         pmf:finish($tmd:CFG, $note)
 };
+
+declare
+    %test:assertEquals("```&#10;Hello&#10;```&#10;&#10;")
+function tmd:code() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:code($tmd:CFG, <n/>, ("code"), "Hello", ())}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("```text&#10;Hello&#10;```&#10;&#10;")
+function tmd:code-with-language() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:code($tmd:CFG, <n/>, ("code"), "Hello", "text")}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("`abc`")
+function tmd:pass-through() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:pass-through($tmd:CFG, <n/>, ("code"), "`abc`")}</root>)
+    => string-join("")
+};
