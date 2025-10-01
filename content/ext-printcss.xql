@@ -18,12 +18,6 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:alternate($config as map(*), $node as node(), $class as xs:string+, $content, $default, $alternate) {
-    <span class="{$class}">
-        <span class="default">
-        { html:apply-children($config, $node, $default) }
-        </span>
-        <span class="alternate">
-        { html:apply-children($config, $node, $alternate) }
-        </span>
-    </span>
+    <span class="{$class}">{$config?apply-children($config, $node, $default)}</span>,
+    pmf:note($config, $node, $class, $alternate, "footnote", ())
 };

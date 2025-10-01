@@ -25,6 +25,6 @@ declare
   %test:assertTrue
 function tpc:alternate-nested-spans() as xs:boolean {
   let $res := pmf:alternate($tpc:CFG, <n/>, ("c"), (), 'D', 'A')
-  return name($res)='span' and $res/span[@class='default']='D' and $res/span[@class='alternate']='A'
+  return name($res[1])='span' and $res[2]/contains(@class, 'footnote')
 };
 

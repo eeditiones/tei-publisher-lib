@@ -59,6 +59,22 @@ declare %private function pmc:generate-default($map as map(*), $mode as xs:strin
 };
 
 declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:string, $odd-root as xs:string) {
+    pmc:generate-pm-config($odds, $default-odd, $odd-root, ("web", "print", "latex", "epub", "fo", "markdown"))
+};
+
+(:~
+ : Generate an XQuery module configuration for transforming documents using multiple ODDs.
+ : This function creates a complete XQuery module that provides transformation functions
+ : for each output mode across all available ODDs.
+ :
+ : @param $odds sequence of ODD file names to include in the configuration
+ : @param $default-odd the default ODD file name to use when no specific ODD is requested
+ : @param $odd-root the root directory path where ODD files are located
+ : @param $output-modes sequence of output mode names (e.g., "web", "print", "latex", etc.)
+ : @return generated XQuery module as a string containing imports and transformation functions
+:)
+declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:string, $odd-root as xs:string,
+    $output-modes as xs:string*) {
     let $map :=
         map:merge(
             for $odd in $odds
@@ -68,7 +84,7 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
                 if (map:contains($pis, "output")) then
                     tokenize($pis?output)
                 else
-                    ("web", "print", "latex", "epub", "fo", "markdown")
+                    $output-modes
             return
                 map {
                     replace($odd, "^(.*?)\..*$", "$1"): $outputs
@@ -81,7 +97,7 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
 ``[import module namespace pm-`{$odd}`-`{$mode}`="http://www.tei-c.org/pm/models/`{$odd}`/`{$mode}`/module" at "../transform/`{$odd}`-`{$mode}`-module.xql";]``
         })
     let $vars :=
-        for $mode in ("web", "print", "latex", "epub", "fo", "tei", "markdown")
+        for $mode in ($output-modes, "tei")
         let $cases := pmc:generate-cases($map, $mode)
         return
             ``[
@@ -95,7 +111,7 @@ declare variable $pm-config:`{$mode}`-transform := function($xml as node()*, $pa
         else
     ``[error(QName("http://www.tei-c.org/tei-simple/pm-config", "error"), "No default ODD found for output mode `{$mode}`")]``
     }`
-    
+
 };
             ]``
     return ``[

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<package xmlns="http://expath.org/ns/pkg" name="http://existsolutions.com/apps/tei-publisher-lib" abbrev="tei-publisher-lib" version="5.0.0" spec="1.0">
+<package xmlns="http://expath.org/ns/pkg" name="http://existsolutions.com/apps/tei-publisher-lib" abbrev="tei-publisher-lib" version="6.0.0" spec="1.0">
     <title>TEI Publisher: Processing Model Libraries</title>
-    <dependency processor="http://exist-db.org" semver-min="3.6.0" />
+    <dependency processor="http://exist-db.org" semver-min="6.2.0" />
     <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions</namespace>
         <file>html-functions.xql</file>

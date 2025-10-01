@@ -11,6 +11,8 @@ declare variable $tmd:CFG :=
         "indent": "",
         "styles": map {
             "bold": map { "font-weight": "bold" },
+            "italic": map { "font-style": "italic" },
+            "del": map { "text-decoration": "line-through" },
             "gap:before": map { "content": "[…]" }
         }
     };
@@ -49,6 +51,27 @@ function tmd:inline-bold() as xs:string {
 };
 
 declare
+    %test:assertEquals("**Hello world**")
+function tmd:inline-bold-with-leading-space() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:inline($tmd:CFG, <n/>, ("bold"), " Hello world")}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("_Hello world_")
+function tmd:inline-emphasis-with-trailing-space() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:inline($tmd:CFG, <n/>, ("italic"), "Hello world  ")}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("<del>Hello</del>")
+function tmd:inline-erased() as xs:string {
+    pmf:inline($tmd:CFG, <n/>, ("del"), "Hello")
+    => string-join("")
+};
+
+declare
     %test:assertEquals("[…]")
 function tmd:inline-css-content() as xs:string {
     pmf:inline($tmd:CFG, <n/>, ("gap"), <gap/>)
@@ -56,7 +79,7 @@ function tmd:inline-css-content() as xs:string {
 };
 
 declare
-    %test:assertEquals("[^1][^1]: Hello&#10;")
+    %test:assertEquals("[^1]&#10;&#10;[^1]: Hello")
 function tmd:note() as xs:string {
     let $note := pmf:note($tmd:CFG, <n/>, ("note"), "Hello", "footnote", "1")
     return
@@ -64,11 +87,40 @@ function tmd:note() as xs:string {
 };
 
 declare
-    %test:assertEquals("Hello[^1]World.&#10;&#10;[^1]: Hello&#10;")
+    %test:assertEquals("Hello[^1] World.&#10;&#10;[^1]: Hello")
 function tmd:note-in-paragraph() as xs:string {
     let $note := pmf:note($tmd:CFG, <n/>, ("note"), "Hello", "footnote", "1")
     let $paragraph := pmf:paragraph($tmd:CFG, <n/>, ("paragraph"), 
         (text { "Hello" }, $note, text { " World." }))
     return
         pmf:finish($tmd:CFG, $paragraph)
+};
+
+declare
+    %test:assertEquals("[^a]&#10;&#10;[^a]: Hello")
+function tmd:note-custom-marker() as xs:string {
+    let $note := pmf:note($tmd:CFG, <n/>, ("note"), "Hello", "footnote", "a")
+    return
+        pmf:finish($tmd:CFG, $note)
+};
+
+declare
+    %test:assertEquals("```&#10;Hello&#10;```&#10;&#10;")
+function tmd:code() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:code($tmd:CFG, <n/>, ("code"), "Hello", ())}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("```text&#10;Hello&#10;```&#10;&#10;")
+function tmd:code-with-language() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:code($tmd:CFG, <n/>, ("code"), "Hello", "text")}</root>)
+    => string-join("")
+};
+
+declare
+    %test:assertEquals("`abc`")
+function tmd:pass-through() as xs:string {
+    pmf:finish($tmd:CFG, <root>{pmf:pass-through($tmd:CFG, <n/>, ("code"), "`abc`")}</root>)
+    => string-join("")
 };
