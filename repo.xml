@@ -10,6 +10,11 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="6.0.1">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Prevent older TEI Publisher versions to break after updating: omit markdown output mode by default; it now needs to be explicitly enabled</li>
+            </ul>
+        </change>
         <change version="6.0.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Breaking change: from every model two classes are assigned automatically for TEI elements - 
