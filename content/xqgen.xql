@@ -139,11 +139,11 @@ declare function xqgen:generate($nodes as node()*, $indent as xs:integer) {
     )
 };
 
-declare %private function xqgen:indent($amount as xs:int) {
+declare %private function xqgen:indent($amount as xs:integer) {
     substring($xqgen:SPACES, 1, $amount * 4)
 };
 
-declare %private function xqgen:indent($str as xs:string, $amount as xs:int) {
+declare %private function xqgen:indent($str as xs:string, $amount as xs:integer) {
     xqgen:indent($amount) ||
     replace($str, "\n", $xqgen:LF || xqgen:indent($amount))
 };
