@@ -57,7 +57,10 @@ declare function docx:process($path as xs:string, $dataRoot as xs:string, $trans
         }
         return (
             $transform($document, $params),
-            docx:copy-media($rels, $unzipped, $mediaPath),
+            if (exists($mediaPath)) then
+                docx:copy-media($rels, $unzipped, $mediaPath)
+            else
+                (),
             xmldb:remove($unzipped)
         )
     else
@@ -92,19 +95,55 @@ declare function docx:process-pkg($package as document-node(), $transform as fun
         $transform($document, $params)
 };
 
-declare function docx:copy-media($rels as element(), $unzipped as xs:string, $mediaPath as xs:string?) {
-    if ($mediaPath) then
-        let $pathComponents := tokenize(replace($mediaPath, "^/db/(.*)$", "$1"), "/")
-        let $collection := docx:mkcol-recursive("/db", $pathComponents)
-        for $image in $rels/rel:Relationship
-            [@Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"]
-            [not(@TargetMode = "External")]
-        let $target := $image/@Target
-        let $relPath := replace($target, "^(.*?)/[^/]+$", "$1")
-        let $imgName := replace($target, "^.*?([^/]+)$", "$1")
-        return
-            $docx:copy($unzipped || "/word/" || $relPath, $mediaPath, $imgName)[2]
-    else
+(:~ Copy any images from an unzipped docx archive into a separate collection so they can be referenced from the transformed TEI document
+ :
+ : @param $rels                  a rel:Relationships element from a docx archive's word/_rels/document.xml.rels file
+ : @param $unzipped-archive-col  the absolute "/db/..." path to the source collection containing the contents of the unzipped archive
+ : @param $destination-media-col the absolute "/db/..." path to the desination collection where the media files should be copied to
+ :)
+declare function docx:copy-media($rels as element(rel:Relationships), $unzipped-archive-col as xs:string, $destination-media-col as xs:string) as empty-sequence() {
+    let $pathComponents := tokenize(replace($destination-media-col, "^/db/(.*)$", "$1"), "/")
+    let $collection := docx:mkcol-recursive("/db", $pathComponents)
+    (: When processing a rel:Relationship/@Target value, remember that:
+     :
+     : 1. An **absolute** path (with a leading slash;  i.e., "^/.+$"   ) implicitly starts from the unzipped archive's "/"      root directory;
+     : 2. A  **relative** path (with no leading slash; i.e., "^[^/].+$") implicitly starts from the unzipped archive's "/word/" subdirectory 
+     :    that contains the "rels" folder whose "document.xml.rels" contains the <rel:Relationship> element being processed.
+     :
+     : In order to successfully copy the resource from the unzipped archive into the destination media folder, 
+     : we need to identify the image's path, relative to the unzipped archive's root directory.
+     :
+     : Here are examples of the two types of @Target and the actual location relative to the unzipped archive's root directory:
+     : 
+     :   | Path Type | @Target            | Actual Location                             |
+     :   | --------- | ------------------ | ------------------------------------------- |
+     :   | Absolute  | "/media/image.png" | [unzipped-archive-dir]/media/image.png      |
+     :                  ^                                         ^
+     :   | Relative  | "media/image.png"  | [unzipped-archive-dir]/word/media/image.png |
+     :                  ^                                         ^^^^^^
+     : 
+     : Both absolute and relative forms have been observed and tested in real MS Word OpenXML files.
+     :)
+    for $image in $rels/rel:Relationship
+        [@Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"]
+        [not(@TargetMode = "External")]
+    let $image-path := $image/@Target
+    (: Split @Target path into the image's directory and filename components :)
+    let $analyze-path := analyze-string($image-path, "^(.*?)([^/]+)$")
+    let $image-dir :=      $analyze-path//fn:group[@nr eq "1"]/string()
+    let $image-filename := $analyze-path//fn:group[@nr eq "2"]/string()
+    let $dir-from-archive-root := 
+        (: Case 1: @Target is already **absolute** from the unzipped archive's root directory :)
+        if (starts-with($image-dir, "/")) then
+            (: Take just the directory portion of @Target, discarding the filename :)
+            $image-dir
+        (: Cast 2: @Target is **relative** to the "word" subdirectory inside the unzipped archive's root directory :)
+        else
+            (: Prepend "/word/" to the directory portion of @Target :)
+            "/word/" || $image-dir
+    let $source-media-col:= $unzipped-archive-col || $dir-from-archive-root
+    let $copy := $docx:copy($source-media-col, $destination-media-col, $image-filename)
+    return
         ()
 };
 
