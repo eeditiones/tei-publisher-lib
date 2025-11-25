@@ -33,6 +33,25 @@ import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counter
 
 declare variable $pmf:NOTE_COUNTER_ID := "notes-" || util:uuid();
 declare variable $pmf:ALTERNATE_COUNTER_ID := "alt-" || util:uuid();
+declare variable $pmf:LANGUAGES := map { "ar" : "rtl",
+"he" : "rtl",
+"kd" : "rtl",
+"fa" : "rtl",
+"ps" : "rtl",
+"ug" : "rtl",
+"ur" : "rtl",
+"yi" : "rtl",
+"ara" : "rtl",
+"heb" : "rtl",
+"syr" : "rtl",
+"syc" : "rtl",
+"kur" : "rtl",
+"fas" : "rtl",
+"per" : "rtl",
+"pus" : "rtl",
+"uig" : "rtl",
+"urd" : "rtl",
+"yid" : "rtl"};
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
     let $styles := css:rendition-styles-html($config, $node)
@@ -52,12 +71,32 @@ declare function pmf:finish($config as map(*), $input as node()*) {
 
     return
         $input
+}; 
+
+
+declare function pmf:add-language-attributes($node as node()) as attribute()* { 
+    if(not(exists($node/@xml:lang))) 
+        then ()
+        else
+            let $lang := if(contains($node/@xml:lang, '-')) then
+                substring-before($node/@xml:lang, '-')
+                else $node/@xml:lang/string()
+            return if(map:contains($pmf:LANGUAGES, $lang)) 
+                then
+                    (attribute dir {$pmf:LANGUAGES?($lang)},
+                    attribute lang {$node/@xml:lang})
+                else
+                    (attribute dir {"ltr"},
+                     attribute lang {$node/@xml:lang})
+
 };
+
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
     <p class="{$class}">
     {
-        pmf:apply-children($config, $node, $content)
+        (pmf:add-language-attributes($node), 
+         pmf:apply-children($config, $node, $content) )
     }
     </p>
 };
@@ -78,6 +117,7 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
     return
         element { "h" || $level } {
             attribute class { $class },
+            pmf:add-language-attributes($node),
             pmf:apply-children($config, $node, $content)
         }
 };
@@ -85,18 +125,22 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
 declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
     if ($node/tei:label) then
         <dl class="{$class}">
-        { pmf:apply-children($config, $node, $content) }
+        { (pmf:add-language-attributes($node),
+         pmf:apply-children($config, $node, $content)) }
         </dl>
     else
         let $listType := ($type, $node/@type)[1]
         return
             switch($listType)
                 case "custom" return
-                    <dl class="list {$class}">{ pmf:apply-children($config, $node, $content) }</dl>
+                    <dl class="list {$class}">{ (pmf:add-language-attributes($node),
+                    pmf:apply-children($config, $node, $content)) }</dl>
                 case "ordered" return
-                    <ol class="{$class}">{pmf:apply-children($config, $node, $content)}</ol>
+                    <ol class="{$class}">{(pmf:add-language-attributes($node),
+                    pmf:apply-children($config, $node, $content))}</ol>
                 default return
-                    <ul class="{$class}">{pmf:apply-children($config, $node, $content)}</ul>
+                    <ul class="{$class}">{(pmf:add-language-attributes($node),
+                    pmf:apply-children($config, $node, $content))}</ul>
 };
 
 declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
@@ -109,20 +153,25 @@ declare function pmf:listItem($config as map(*), $node as node(), $class as xs:s
             ()
     return
         if ($label) then (
-            <dt>{pmf:apply-children($config, $node, $label)}</dt>,
-            <dd>{pmf:apply-children($config, $node, $content)}</dd>
+            <dt>{(pmf:add-language-attributes($node),
+            pmf:apply-children($config, $node, $label))}</dt>,
+            <dd>{(pmf:add-language-attributes($node),
+            pmf:apply-children($config, $node, $content))}</dd>
         ) else
             <li class="{$class}">
-            { pmf:apply-children($config, $node, $content) }
+            { (pmf:add-language-attributes($node),
+            pmf:apply-children($config, $node, $content)) }
             </li>
 };
 
 declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <div class="{$class}">{pmf:apply-children($config, $node, $content)}</div>
+    <div class="{$class}">{(pmf:add-language-attributes($node),
+    pmf:apply-children($config, $node, $content))}</div>
 };
 
 declare function pmf:section($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <section class="{$class}">{pmf:apply-children($config, $node, $content)}</section>
+    <section class="{$class}">{(pmf:add-language-attributes($node),
+    pmf:apply-children($config, $node, $content))}</section>
 };
 
 declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -136,7 +185,8 @@ declare function pmf:anchor($config as map(*), $node as node(), $class as xs:str
 declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri, $target, $optional as map(*)) {
     let $link := head(($uri, $optional?link))
     return
-        <a href="{$link}" class="{$class}" target="{$target}">{pmf:apply-children($config, $node, $content)}</a>
+        <a href="{$link}" class="{$class}" target="{$target}">{(pmf:add-language-attributes($node),
+        pmf:apply-children($config, $node, $content))}</a>
 };
 
 declare function pmf:escapeChars($text as item()*) {
@@ -159,7 +209,8 @@ declare function pmf:figure($config as map(*), $node as node(), $class as xs:str
     { pmf:apply-children($config, $node, $content) }
     {
         if ($title) then
-            <figcaption>{ $config?apply-children($config, $node, $title) }</figcaption>
+            <figcaption>{(pmf:add-language-attributes($node),
+             $config?apply-children($config, $node, $title)) }</figcaption>
         else
             ()
     }
@@ -192,13 +243,13 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
     switch ($place)
         case "margin" return
             if ($label) then (
-                <span class="{$class} margin-note-ref">{$label}</span>,
+                <span class="{$class} margin-note-ref">{(pmf:add-language-attributes($node), $label)}</span>,
                 <span class="{$class} margin-note">
-                    <span class="n">{$label/string()}) </span>{ $config?apply-children($config, $node, $content) }
+                    <span class="n">{pmf:add-language-attributes($node), $label/string()} </span>{ $config?apply-children($config, $node, $content) }
                 </span>
             ) else
                 <span class="{$class} margin-note" id="margin_ref_{$id}">
-                { $config?apply-children($config, $node, $content) }
+                { pmf:add-language-attributes($node), $config?apply-children($config, $node, $content) }
                 </span>
         default return
             let $nr :=
@@ -235,7 +286,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                 <dl class="footnote" id="fn_{$id}">
                     <dt class="fn-number">{ if ($nr instance of attribute()) then $nr/string() else $nr }</dt>
                     <dd class="fn-content">
-                        {$content}
+                        {(pmf:add-language-attributes($node), $content)}
                         <a class="fn-back" href="#fnref_{$id}">↩</a>
                     </dd>
                 </dl>,
@@ -271,6 +322,7 @@ declare %private function pmf:cleanup-popover($nodes as item()*) {
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content) {
     <span class="{$class}">
     {
+        pmf:add-language-attributes($node),
         $config?apply-children($config, $node, $content)
     }
     </span>
@@ -289,6 +341,7 @@ declare function pmf:text($config as map(*), $node as node(), $class as xs:strin
 declare function pmf:cit($config as map(*), $node as node(), $class as xs:string+, $content, $source) {
     <blockquote class="{$class}">
     {
+        pmf:add-language-attributes($node),
         $config?apply-children($config, $node, $content),
         if ($source) then
             <cite>{$config?apply-children($config, $node, $source)}</cite>
@@ -299,7 +352,9 @@ declare function pmf:cit($config as map(*), $node as node(), $class as xs:string
 };
 
 declare function pmf:body($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <body class="{$class}">{pmf:apply-children($config, $node, $content)}</body>
+    <body class="{$class}">{
+        pmf:add-language-attributes($node),
+        pmf:apply-children($config, $node, $content)}</body>
 };
 
 declare function pmf:index($config as map(*), $node as node(), $class as xs:string+, $type, $content) {
@@ -319,7 +374,8 @@ declare function pmf:break($config as map(*), $node as node(), $class as xs:stri
 };
 
 declare function pmf:document($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <html class="{$class}">{pmf:apply-children($config, $node, $content)}</html>
+    <html class="{$class}">{pmf:add-language-attributes($node), 
+    pmf:apply-children($config, $node, $content)}</html>
 };
 
 declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -338,15 +394,15 @@ declare function pmf:metadata($config as map(*), $node as node(), $class as xs:s
 };
 
 declare function pmf:title($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <title>{pmf:apply-children($config, $node, $content)}</title>
+    <title>{pmf:add-language-attributes($node), pmf:apply-children($config, $node, $content)}</title>
 };
 
 declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <table class="{$class}">{pmf:apply-children($config, $node, $content)}</table>
+    <table class="{$class}">{pmf:add-language-attributes($node), pmf:apply-children($config, $node, $content)}</table>
 };
 
 declare function pmf:row($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <tr class="{$class}">{pmf:apply-children($config, $node, $content)}</tr>
+    <tr class="{$class}">{pmf:add-language-attributes($node), pmf:apply-children($config, $node, $content)}</tr>
 };
 
 declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
@@ -360,6 +416,7 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
             attribute rowspan { $node/@rows }
         else
         (),
+        pmf:add-language-attributes($node),
         pmf:apply-children($config, $node, $content)
     }
 };
@@ -388,14 +445,22 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
 
     else
         <span class="alternate {$class}">
-            <span>{pmf:apply-children($config, $node, $default)}</span>
-            <span class="altcontent">{pmf:apply-children($config, $node, $alternate)}</span>
+            <span>{
+                if($default instance of element()) 
+                    then pmf:add-language-attributes($default)
+                    else (),
+                    pmf:apply-children($config, $node, $default)}</span>
+            <span class="altcontent">{
+                if($alternate instance of element()) 
+                    then pmf:add-language-attributes($alternate)
+                    else (),
+                    pmf:apply-children($config, $node, $alternate)}</span>
         </span>
 };
 
 declare function pmf:match($config as map(*), $node as node(), $content) {
     <mark id="{$node/../@exist:id}">
-    {
+    {   pmf:add-language-attributes($node),
         pmf:apply-children($config, $node, $content)
     }</mark>
 };
