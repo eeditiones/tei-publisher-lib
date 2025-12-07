@@ -30,10 +30,11 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 (:~
  : Copy the current element and its attributes, then process its children.
+ : leave out empty attributes
  :)
 declare function pmf:copy($config as map(*), $node as node(), $class as xs:string+, $content) {
     element { node-name($node) } {
-        $node/@* except $node/@xml:id,
+        $node/@*[normalize-space()!=''] except $node/@xml:id,
         pmf:apply-children($config, $node, $content)
     }
 };
