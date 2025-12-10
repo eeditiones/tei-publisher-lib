@@ -28,12 +28,28 @@ module namespace pmf="http://existsolutions.com/xquery/functions/tei";
 
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
+declare variable $pmf:copy-whitelist := (
+    "orig", "norm", "delim",
+    "xml:lang", "targetLang", "tags", "tag", 
+    "ident", "docLang", "mainLang", "otherLangs");
+
+(: TODO: read the whitelist from config and only default to $pmf:copy-whitelist when not available:)
+(:~  
+: Copy non-empty attributes, or those explicitly whitelisted as allowed to hold empty string or just whitespace 
+:)
+declare function pmf:copy-whitelist($config as map(*), $attributes as node()*) {
+    for $att in $attributes 
+    return
+        if ($att/normalize-space()!='' or $att/name() = $pmf:copy-whitelist) then $att else ()
+};
+
 (:~
  : Copy the current element and its attributes, then process its children.
+ : leave out empty attributes
  :)
 declare function pmf:copy($config as map(*), $node as node(), $class as xs:string+, $content) {
     element { node-name($node) } {
-        $node/@* except $node/@xml:id,
+        pmf:copy-whitelist($config, $node/@* except $node/@xml:id),
         pmf:apply-children($config, $node, $content)
     }
 };
