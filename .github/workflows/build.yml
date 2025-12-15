@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload logs artifact
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: tp-lib-exist-${{ matrix.exist-version }}-log
           path: exist.log
@@ -110,7 +110,7 @@ jobs:
 
       - name: Upload xqs-report artifact
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: tp-lib-exist-${{ matrix.exist-version }}-xqs
           path: build/testsuite.xml
