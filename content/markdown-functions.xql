@@ -31,6 +31,7 @@ import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
 declare namespace tei="http://www.tei-c.org/ns/1.0";
 
 declare variable $pmf:INDENT := "    ";
+declare variable $pmf:CSS_PROPERTIES := ("font-weight", "font-style", "text-decoration");
 
 (:~
  : Initialize the configuration map. Read CSS styles from the ODD and add
@@ -351,14 +352,25 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
 
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:get-before($config, $class),
-    let $styles := $config?styles?($class)
+    let $allStyles := $config?styles?($class)
+    let $knownStyles :=
+        map:merge((
+            for $styles in $allStyles
+            return
+                map:for-each($styles, function($style, $value) {
+                    if ($style = $pmf:CSS_PROPERTIES) then
+                        map:entry($style, $value)
+                    else
+                        ()
+                })
+        ))
     return
-        if (exists($styles)) then
-            if ($styles("font-weight") = "bold") then
+        if (map:size($knownStyles) > 0) then
+            if ($knownStyles("font-weight") = "bold") then
                 (text { "**" }, $config?apply-children($config, $node, $content), text { "**" })
-            else if ($styles("font-style") = "italic") then
+            else if ($knownStyles("font-style") = "italic") then
                 (text { "_" }, $config?apply-children($config, $node, $content), text { "_" })
-            else if ($styles("text-decoration") = "line-through") then
+            else if ($knownStyles("text-decoration") = "line-through") then
                 (text { "<del>" }, $config?apply-children($config, $node, $content), text { "</del>" })
             else
                 $config?apply-children($config, $node, $content)
