@@ -100,47 +100,50 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
             </teiHeader>
             <text>
                 <body>
-                {
-                    (: Copy element specs which are not overwritten by child :)
-                    for $spec in $parent//elementSpec
-                    group by $ident := $spec/@ident
-                    let $childSpec := $childSpecs($ident)[@mode = "change"]
-                    return
-                        if ($childSpec) then
-                            if ($childSpec/(model|modelGrp|modelSequence)) then
-                                $childSpec
-                            else
-                                element { node-name($childSpec) } {
-                                    $childSpec/@*,
+                    <schemaSpec>
+                    { $parent//tei:schemaSpec/@ns }
+                    {
+                        (: Copy element specs which are not overwritten by child :)
+                        for $spec in $parent//elementSpec
+                        group by $ident := $spec/@ident
+                        let $childSpec := $childSpecs($ident)[@mode = "change"]
+                        return
+                            if ($childSpec) then
+                                if ($childSpec/(model|modelGrp|modelSequence)) then
+                                    $childSpec
+                                else
+                                    element { node-name($childSpec) } {
+                                        $childSpec/@*,
+                                        $spec/(model|modelGrp|modelSequence)
+                                    }
+                            else if ($spec/(model|modelGrp|modelSequence)) then
+                                element { node-name($spec[1]) } {
+                                    $spec[1]/@*,
                                     $spec/(model|modelGrp|modelSequence)
                                 }
-                        else if ($spec/(model|modelGrp|modelSequence)) then
-                            element { node-name($spec[1]) } {
-                                $spec[1]/@*,
-                                $spec/(model|modelGrp|modelSequence)
-                            }
-                        else
-                            ()
-                }
-                {
-                    (: Copy added element specs :)
-                    for $spec in $child//elementSpec[.//model]
-                    (: Skip specs which already exist in parent :)
-                    where empty($parentSpecs($spec/@ident))
-                    return
-                        $spec
-                }
-                {
-                    (: Merge global outputRenditions :)
-                    for $rendition in $child//outputRendition[@xml:id][not(ancestor::model)]
-                    where exists($parent/id($rendition/@xml:id))
-                    return
-                        $rendition,
-                    for $parentRendition in $parent//outputRendition[@xml:id][not(ancestor::model)]
-                    where empty($child/id($parentRendition/@xml:id))
-                    return
-                        $parentRendition
-                }
+                            else
+                                ()
+                    }
+                    {
+                        (: Copy added element specs :)
+                        for $spec in $child//elementSpec[.//model]
+                        (: Skip specs which already exist in parent :)
+                        where empty($parentSpecs($spec/@ident))
+                        return
+                            $spec
+                    }
+                    {
+                        (: Merge global outputRenditions :)
+                        for $rendition in $child//outputRendition[@xml:id][not(ancestor::model)]
+                        where exists($parent/id($rendition/@xml:id))
+                        return
+                            $rendition,
+                        for $parentRendition in $parent//outputRendition[@xml:id][not(ancestor::model)]
+                        where empty($child/id($parentRendition/@xml:id))
+                        return
+                            $parentRendition
+                    }
+                    </schemaSpec>
                 </body>
             </text>
         </TEI>
