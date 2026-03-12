@@ -36,11 +36,15 @@ declare function css:parse-css($css as xs:string) {
             for $match in analyze-string($match/fn:group[@nr = "2"], "\s*(.*?)\s*:\s*['&quot;]?(.*?)['&quot;]?(?:;|$)")/fn:match
             return
                 map:entry($match/fn:group[1]/string(), $match/fn:group[2]/string())
+        ,
+        map { "duplicates": "use-last" }
         )
         for $selector in $selectors
         let $selector := replace($selector, "^\.?(.+)$", "$1")
         return
             map:entry($selector, $styles)
+    ,
+    map { "duplicates": "use-last" }
     )
 };
 
@@ -145,6 +149,8 @@ declare function css:rendition-styles($config as map(*), $node as node()*) as ma
                 for $def in $doc/id($id)
                 return
                     map:entry("document_" || $id, $def/string())
+            ,
+            map { "duplicates": "use-last" }
             )
         else
             ()

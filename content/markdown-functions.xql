@@ -45,7 +45,9 @@ declare function pmf:init($config as map(*), $node as node()*) {
     let $css := pmf:load-styles($config, doc($config?odd)) => string-join()
     let $styles := css:parse-css($css)
     return
-        map:merge(($config, map:entry("styles", $styles), map:entry("indent", "")))
+        map:merge(($config, map:entry("styles", $styles), map:entry("indent", "")),
+            map { "duplicates": "use-last" }
+        )
 };
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
@@ -234,7 +236,9 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
         let $newConfig := map:merge((
             $config,
             map { "listType": $type }
-        ))
+        ),
+        map { "duplicates": "use-last" }
+        )
         return
             $config?apply-children($newConfig, $node, $content),
         <lb/>
@@ -252,7 +256,9 @@ declare function pmf:listItem($config as map(*), $node as node(), $class as xs:s
     let $newConfig := map:merge((
         $config,
         map { "indent": string-join(($config?indent, $pmf:INDENT), "") }
-    ))
+    ),
+    map { "duplicates": "use-last" }
+    )
     return
         if ($label) then (
             <lb/>,
@@ -363,7 +369,9 @@ declare function pmf:inline($config as map(*), $node as node(), $class as xs:str
                     else
                         ()
                 })
-        ))
+        ),
+        map { "duplicates": "use-last" }
+        )
     return
         if (map:size($knownStyles) > 0) then
             if ($knownStyles("font-weight") = "bold") then

@@ -102,7 +102,7 @@ let $config :=
             "apply": model:apply#2,
             "apply-children": model:apply-children#3
         }}
-    ))
+    ), map {{ "duplicates": "use-last" }})
 { pm:init-modules($moduleDesc) }
 return (
     { pm:prepare-modules($moduleDesc) }
@@ -275,7 +275,9 @@ return
             ()
         else
             attribute data-annotation {{
-                map:merge($context/@* ! map:entry(node-name(.), ./string()))
+                map:merge($context/@* ! map:entry(node-name(.), ./string()),
+                    map {{ "duplicates": "use-last" }}
+                )
                 => serialize(map {{ "method": "json" }})
             }}
     ) else
@@ -333,7 +335,9 @@ declare function pm:load-modules($modules as array(*)) as array(*) {
             else
                 inspect:inspect-module-uri(xs:anyURI($module?uri))
         return
-            map:merge(($module, map { "description": $meta }))
+            map:merge(($module, map { "description": $meta }),
+                map { "duplicates": "use-last" }
+            )
     })
 };
 
@@ -407,7 +411,8 @@ declare %private function pm:process-models($ident as xs:string, $models as elem
                     else
                         <else>
                         {
-                            if ($models[not(@predicate)]) then
+                            if ($models[not(@predicate)]) then (
+                                <comment>Models without predicate: {serialize($models[not(@predicate)])}.</comment>,
                                 if (count($models[not(@predicate)]) > 1 and not($models/parent::tei:modelSequence)) then (
                                     <comment>More than one model without predicate found for ident {$ident}.
                                     Choosing first one.</comment>,
@@ -417,7 +422,7 @@ declare %private function pm:process-models($ident as xs:string, $models as elem
 (:                                        "outside modelSequence for ident '" || $ident || "'"):)
                                 ) else
                                     pm:model-or-sequence($ident, $models[not(@predicate)], $modules, $output, $trackIds)
-                            else
+                            )else
                                 <function-call name="$config?apply">
                                     <param>$config</param>
                                     <param>./node()</param>
@@ -492,7 +497,9 @@ declare %private function pm:model($ident as xs:string, $model as element(tei:mo
                     <function-call name="{$fn?prefix}:{$task}">
                         {
                             if ($model/pb:template) then
-                                <param>map:merge(($config, map:entry("template", true())))</param>
+                                <param>map:merge(($config, map:entry("template", true())),
+                                    map {{ "duplicates": "use-last" }}
+                                )</param>
                             else
                                 <param>$config</param>
                         }
@@ -572,7 +579,9 @@ declare %private function pm:set-parameters($model as element(tei:model)) as xs:
             map {
             `{ string-join($addParams, ',&#10;') }`
             }
-        ))
+        ),
+        map { "duplicates": "use-last" }
+        )
     }
 ))
 return
@@ -590,7 +599,9 @@ declare %private function pm:set-mode($model as element(tei:model)) as xs:string
             else
                 '"' || $mode || '"'
         return
-            ``[let $config := map:merge(($config, map { "mode": `{$name}` })) return
+            ``[let $config := map:merge(($config, map { "mode": `{$name}` }),
+            map { "duplicates": "use-last" }
+            ) return
             ]``
     else
         ()

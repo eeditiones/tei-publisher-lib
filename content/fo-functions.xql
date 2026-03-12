@@ -69,7 +69,9 @@ declare function pmf:init($config as map(*), $node as node()*) {
     let $renditionStyles := string-join(css:rendition-styles-html($config, $node))
     let $styles := if ($renditionStyles) then css:parse-css($renditionStyles) else map {}
     return
-        map:merge(($config, map:entry("rendition-styles", $styles)))
+        map:merge(($config, map:entry("rendition-styles", $styles)),
+            map { "duplicates": "use-last" }
+        )
 };
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -142,7 +144,9 @@ declare function pmf:list($config as map(*), $node as node(), $class as xs:strin
         <fo:list-block provisional-distance-between-starts="{$label-length}em">
         {
             pmf:check-styles($config, $node, $class, ()),
-            $config?apply(map:merge(($config, map:entry("listType", $type))), $content)
+            $config?apply(map:merge(($config, map:entry("listType", $type)),
+                map { "duplicates": "use-last" }
+            ), $content)
         }
         </fo:list-block>
 };
@@ -498,9 +502,13 @@ declare function pmf:check-styles($config as map(*), $node as node()?, $classes 
         (),
     let $defaultStyles :=
         if (exists($default)) then
-            map:merge(($default, $classes ! $config?default-styles(.)))
+            map:merge(($default, $classes ! $config?default-styles(.)),
+                map { "duplicates": "use-last" }
+            )
         else
-            map:merge($classes ! $config?default-styles(.))
+            map:merge($classes ! $config?default-styles(.),
+                map { "duplicates": "use-last" }
+            )
     let $stylesForClass :=
         map:merge(
             for $class in $classes
@@ -508,6 +516,8 @@ declare function pmf:check-styles($config as map(*), $node as node()?, $classes 
                 pmf:filter-styles($config?styles?($class)),
                 pmf:filter-styles($config?rendition-styles?($class))
             )
+        ,
+        map { "duplicates": "use-last" }
         )
     let $styles :=
         if (exists($stylesForClass)) then
@@ -537,7 +547,9 @@ declare %private function pmf:merge-maps($map as map(*), $defaults as map(*)?) {
     else if (empty($map)) then
         $defaults
     else
-        map:merge(($defaults, $map))
+        map:merge(($defaults, $map),
+            map { "duplicates": "use-last" }
+        )
 };
 
 declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?) {
@@ -548,7 +560,9 @@ declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?
     else
         map:merge((
             map:for-each($map, function($key, $value) {
-                map:entry($key, map:merge(($defaults($key), $map($key))))
+                map:entry($key, map:merge(($defaults($key), $map($key)),
+                    map { "duplicates": "use-last" }
+                ))
             }),
             map:for-each($defaults, function($key, $value) {
                 if (map:contains($map, $key)) then
@@ -556,14 +570,18 @@ declare %private function pmf:merge-styles($map as map(*)?, $defaults as map(*)?
                 else
                     map:entry($key, $value)
             })
-        ))
+        ),
+        map { "duplicates": "use-last" }
+        )
 };
 
 declare function pmf:load-styles($config as map(*), $root as document-node()) {
     let $css := css:generate-css($root, "fo", $config?odd)
     let $styles := css:parse-css($css)
     let $styles :=
-        map:merge(($config, map:entry("styles", $styles)))
+        map:merge(($config, map:entry("styles", $styles)),
+            map { "duplicates": "use-last" }
+        )
     return
         $styles
 };
@@ -576,7 +594,9 @@ declare function pmf:load-default-styles($config as map(*)) {
     let $systemStyles := pmf:read-css-string($systemCss)
     let $merged := pmf:merge-styles($userStyles, $systemStyles)
     return
-        map:merge(($config, map:entry("default-styles", $merged)))
+        map:merge(($config, map:entry("default-styles", $merged)),
+            map { "duplicates": "use-last" }
+        )
 };
 
 declare function pmf:load-xml($config as map(*), $file as xs:string) {

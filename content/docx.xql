@@ -207,6 +207,8 @@ declare function docx:extract-styles($doc as element()?) {
         for $style in $doc/w:style
         return
             map:entry($style/@w:styleId/string(), $style)
+    ,
+    map { "duplicates": "use-last" }
     )
 };
 
