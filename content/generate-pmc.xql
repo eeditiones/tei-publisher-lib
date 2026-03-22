@@ -34,6 +34,8 @@ declare %private function pmc:parse-pi($doc as document-node()) {
         let $value := $match/fn:group[@nr="2"]/string()
         return
             map:entry($key, $value)
+    ,
+    map { "duplicates": "use-last" }
     )
 };
 
@@ -89,6 +91,8 @@ declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:
                 map {
                     replace($odd, "^(.*?)\..*$", "$1"): $outputs
                 }
+        ,
+        map { "duplicates": "use-last" }
         )
     let $imports :=
         map:for-each($map, function($odd, $modes) {

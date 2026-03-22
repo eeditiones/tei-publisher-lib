@@ -47,11 +47,15 @@ declare %private function odd:merge($parent as element(tei:TEI), $child as eleme
         for $spec in $child//tei:elementSpec
         return
             map:entry($spec/@ident/string(), $spec)
+    ,
+    map { "duplicates": "use-last" }
     )
     let $parentSpecs := map:merge(
         for $spec in $parent//tei:elementSpec
         return
             map:entry($spec/@ident/string(), $spec)
+    ,
+    map { "duplicates": "use-last" }
     )
     return
     document {

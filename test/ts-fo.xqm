@@ -61,7 +61,9 @@ function tfo:cell-adds-span-attributes() as xs:boolean {
 declare
   %test:assertTrue
 function tfo:paragraph-applies-styles() as xs:boolean {
-  let $cfg := map:merge(($tfo:CFG, map { 'styles': map { 'c': map { 'color': 'red', 'text-align': 'center' } } }))
+  let $cfg := map:merge(($tfo:CFG, map { 'styles': map { 'c': map { 'color': 'red', 'text-align': 'center' } } }),
+    map { "duplicates": "use-last" }
+  )
   let $seq := pmf:paragraph($cfg, <n/>, ("c"), "x")
   let $blk := ($seq[self::element()])[1]
   return name($blk)='fo:block' and $blk/@color='red' and $blk/@text-align='center'

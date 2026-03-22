@@ -121,7 +121,9 @@ declare function dts:get-members($config as map(*), $collectionInfo as map(*), $
                             "dts:passage": dts:base-path($config) || "/documents?id=" || $collectionInfo?path || "/" || $id
                         },
                         $collectionInfo?metadata(root($resource))
-                    ))
+                    ),
+                    map { "duplicates": "use-last" }
+                    )
 };
 
 declare function dts:documents($config as map(*)) {

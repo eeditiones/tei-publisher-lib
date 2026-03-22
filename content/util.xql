@@ -160,7 +160,9 @@ declare function pmu:process-odd($odd as document-node(), $output-root as xs:str
     let $ext-modules := pmu:parse-config($name, $mode, $config)
     let $module :=
         if (exists($ext-modules)) then
-            map:merge(($modulesDefault, map:entry("modules", array { $modulesDefault?modules?*, $ext-modules })))
+            map:merge(($modulesDefault, map:entry("modules", array { $modulesDefault?modules?*, $ext-modules })),
+                map { "duplicates": "use-last" }
+            )
         else
             $modulesDefault
     return
@@ -239,7 +241,7 @@ declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xquer
         "return m:transform($options, $xml)"
     let $stored :=
         xmldb:store($output-root, $name || "-" || $mode || "-main.xql", $mainCode, "application/xquery")
-    let $chmod := sm:chmod($stored, "rwxrwxr-x")
+    let $chmod := sm:chmod(xs:anyURI($stored), "rwxrwxr-x")
     return
         $stored
 };
@@ -256,7 +258,9 @@ declare function pmu:parse-config-properties($odd as xs:string, $mode as xs:stri
     if ($config) then
         let $props := $config/output[@mode = $mode][not(@odd) or @odd = $odd]/property
         return
-            map:merge(($defaultConfig, map { "properties": $props }))
+            map:merge(($defaultConfig, map { "properties": $props }),
+                map { "duplicates": "use-last" }
+            )
     else
         $defaultConfig
 };
@@ -274,7 +278,9 @@ declare %private function pmu:parse-config($odd as xs:string, $mode as xs:string
             }
         return
             if ($module/@at) then
-                map:merge(($map, map { "at": $module/@at }))
+                map:merge(($map, map { "at": $module/@at }),
+                    map { "duplicates": "use-last" }
+                )
             else
                 $map
     else
@@ -326,7 +332,9 @@ declare %private function pmu:fix-module-paths($modules as array(*), $globalModu
                             else
                                 $sysPath || "/modules/" || $module?at,
                         "atRel": "../modules/" || $module?at
-                    })),
+                    }),
+                    map { "duplicates": "use-last" }
+                    ),
             if (exists($globalModules)) then
                 for $module in $globalModules
                 return

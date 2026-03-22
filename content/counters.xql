@@ -28,7 +28,9 @@ import module namespace counter="http://exist-db.org/xquery/counter" at "java:or
 declare function counters:create($id as xs:string) {
     if (request:exists()) then
         let $map := counters:get-or-create($id)
-        let $newMap := map:merge(($map, map:entry($id, 0)))
+        let $newMap := map:merge(($map, map:entry($id, 0)),
+            map { "duplicates": "use-last" }
+        )
         return
             request:set-attribute("pm:counters", $newMap)
     else
@@ -39,7 +41,9 @@ declare function counters:increment($id as xs:string) {
     if (request:exists()) then
         let $map := counters:get-or-create($id)
         let $inc := $map($id) + 1
-        let $newMap := map:merge(($map, map:entry($id, $inc)))
+        let $newMap := map:merge(($map, map:entry($id, $inc)),
+            map { "duplicates": "use-last" }
+        )
         return (
             request:set-attribute("pm:counters", $newMap),
             $inc
