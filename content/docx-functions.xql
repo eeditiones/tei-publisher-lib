@@ -10,7 +10,8 @@ xquery version "3.1";
  : during the tree-walk are collected and replaced in pmf:finish().
  :
  : Word styles: the first class token not starting with tei- becomes the Word
- : w:styleId (paragraph or character). Generated tei-* classes are skipped.
+ : w:styleId (paragraph or character) only if that id exists in the DOCX template
+ : styles.xml (see pmf:init). Generated tei-* classes are skipped.
  :
  : @author TEI Publisher Team
  :)
@@ -38,8 +39,31 @@ declare variable $pmf:FN_REL_TYPE := "http://schemas.openxmlformats.org/officeDo
 declare variable $pmf:HL_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
 (: ============================================================
-   Lifecycle: prepare / finish
+   Lifecycle: init / prepare / finish
    ============================================================ :)
+
+declare function pmf:init($config as map(*), $node as node()*) {
+    let $styles-doc := pmf:load-template-xml("word/styles.xml")
+    let $styles := $styles-doc//w:style
+    return
+        map:merge((
+            $config,
+            map {
+                "docx-para-style-ids": distinct-values(
+                    for $id in $styles[@w:type = "paragraph"]/@w:styleId
+                    return string($id)[normalize-space(.) != ""]
+                ),
+                "docx-char-style-ids": distinct-values(
+                    for $id in $styles[@w:type = "character"]/@w:styleId
+                    return string($id)[normalize-space(.) != ""]
+                ),
+                "docx-table-style-ids": distinct-values(
+                    for $id in $styles[@w:type = "table"]/@w:styleId
+                    return string($id)[normalize-space(.) != ""]
+                )
+            }
+        ), map { "duplicates": "use-last" })
+};
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
     counters:create($pmf:FOOTNOTE_COUNTER),
@@ -52,9 +76,9 @@ declare function pmf:finish($config as map(*), $input as node()*) {
     let $_ := counters:destroy($pmf:LINK_COUNTER)
     let $footnotes  := $input//docx:footnote
     let $links      := $input//docx:hyperlink
-    let $body-nodes := pmf:clean-body($input)
+    let $body-nodes := pmf:clean-body($config, $input)
     return
-        pmf:assemble-package($body-nodes, $footnotes, $links, exists($footnotes))
+        pmf:assemble-package($config, $body-nodes, $footnotes, $links, exists($footnotes))
 };
 
 (: ============================================================
@@ -67,7 +91,7 @@ declare function pmf:document($config as map(*), $node as node(), $class as xs:s
 
 declare function pmf:paragraph($config as map(*), $node as node(), $class as xs:string+, $content) {
     <w:p>
-        <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($class)}"/></w:pPr>
+        <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($config, $class)}"/></w:pPr>
         { pmf:apply-runs($config, $node, $class, $content) }
     </w:p>
 };
@@ -82,14 +106,14 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
     let $lvl := min((max(($lvl, 1)), 9))
     return
         <w:p>
-            <w:pPr><w:pStyle w:val="Heading{$lvl}"/></w:pPr>
+            <w:pPr><w:pStyle w:val="{pmf:resolve-heading-style($config, $lvl)}"/></w:pPr>
             { pmf:apply-runs($config, $node, $class, $content) }
         </w:p>
 };
 
 declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
     <w:p>
-        <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($class)}"/></w:pPr>
+        <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($config, $class)}"/></w:pPr>
         { pmf:apply-runs($config, $node, $class, $content) }
     </w:p>
 };
@@ -148,7 +172,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
     return (
         <docx:footnote-ref id="{$id}"/>,
         <docx:footnote id="{$id}">
-            { $config?apply($config, $content/node()) }
+            { $config?apply-children($config, $node, $content) }
         </docx:footnote>
     )
 };
@@ -176,10 +200,17 @@ declare function pmf:listItem($config as map(*), $node as node(), $class as xs:s
 };
 
 declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <w:tbl>
-        <w:tblPr><w:tblStyle w:val="TableGrid"/></w:tblPr>
-        { $config?apply-children($config, $node, $content) }
-    </w:tbl>
+    let $tbl-style := pmf:resolve-table-style($config)
+    return
+        <w:tbl>
+            {
+                if (exists($tbl-style)) then
+                    <w:tblPr><w:tblStyle w:val="{$tbl-style}"/></w:tblPr>
+                else
+                    <w:tblPr/>
+            }
+            { $config?apply-children($config, $node, $content) }
+        </w:tbl>
 };
 
 declare function pmf:row($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -248,10 +279,16 @@ declare function pmf:skip($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:caption($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <w:p>
-        <w:pPr><w:pStyle w:val="Caption"/></w:pPr>
-        { pmf:apply-runs($config, $node, $class, $content) }
-    </w:p>
+    let $pstyle :=
+        if (pmf:has-para-style($config, "Caption")) then
+            "Caption"
+        else
+            pmf:resolve-para-style($config, $class)
+    return
+        <w:p>
+            <w:pPr><w:pStyle w:val="{$pstyle}"/></w:pPr>
+            { pmf:apply-runs($config, $node, $class, $content) }
+        </w:p>
 };
 
 declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -284,33 +321,38 @@ declare function pmf:apply-children($config as map(*), $node as node(), $content
    Private: body cleaning (sentinel replacement)
    ============================================================ :)
 
-declare %private function pmf:clean-body($nodes as node()*) as node()* {
+declare %private function pmf:clean-body($config as map(*), $nodes as node()*) as node()* {
     for $node in $nodes
     return
         typeswitch($node)
             case element(docx:footnote) return ()
             case element(docx:footnote-ref) return
                 <w:r>
-                    <w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr>
+                    {
+                        if (pmf:has-char-style($config, "FootnoteReference")) then
+                            <w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr>
+                        else
+                            ()
+                    }
                     <w:footnoteReference w:id="{$node/@id}"/>
                 </w:r>
             case element(w:p) return
-                pmf:flatten-paragraph($node)
+                pmf:flatten-paragraph($config, $node)
             case element(docx:hyperlink) return
                 element { QName("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:hyperlink") } {
                     attribute { QName("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r:id") } { $node/@rId },
-                    pmf:clean-body($node/node())
+                    pmf:clean-body($config, $node/node())
                 }
             case element() return
                 element { node-name($node) } {
                     $node/@*,
-                    pmf:clean-body($node/node())
+                    pmf:clean-body($config, $node/node())
                 }
             default return $node
 };
 
-declare %private function pmf:flatten-paragraph($p as element(w:p)) as element(w:p)* {
-    let $content := pmf:clean-body($p/node()[not(self::w:p)])
+declare %private function pmf:flatten-paragraph($config as map(*), $p as element(w:p)) as element(w:p)* {
+    let $content := pmf:clean-body($config, $p/node()[not(self::w:p)])
     let $has-content := exists($content[not(self::text()[normalize-space(.) = ""])])
     return (
         if ($has-content) then
@@ -322,7 +364,7 @@ declare %private function pmf:flatten-paragraph($p as element(w:p)) as element(w
             (),
         for $nested in $p/w:p
         return
-            pmf:flatten-paragraph($nested)
+            pmf:flatten-paragraph($config, $nested)
     )
 };
 
@@ -331,6 +373,7 @@ declare %private function pmf:flatten-paragraph($p as element(w:p)) as element(w
    ============================================================ :)
 
 declare %private function pmf:assemble-package(
+    $config         as map(*),
     $body-nodes     as node()*,
     $footnotes      as element(docx:footnote)*,
     $links          as element(docx:hyperlink)*,
@@ -361,7 +404,7 @@ declare %private function pmf:assemble-package(
                 if ($has-footnotes) then (
                     <pkg:part pkg:name="/word/footnotes.xml"
                         pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml">
-                        <pkg:xmlData>{ pmf:make-footnotes-xml($footnotes) }</pkg:xmlData>
+                        <pkg:xmlData>{ pmf:make-footnotes-xml($config, $footnotes) }</pkg:xmlData>
                     </pkg:part>,
                     <pkg:part pkg:name="/word/_rels/footnotes.xml.rels"
                         pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
@@ -486,7 +529,156 @@ declare %private function pmf:make-content-types($has-footnotes as xs:boolean) a
     </Types>
 };
 
-declare %private function pmf:make-footnotes-xml($footnotes as element(docx:footnote)*) as element(w:footnotes) {
+(:~
+ : Footnote bodies must be a sequence of block elements (w:p, w:tbl, …). A single
+ : wrapper w:p must not contain nested w:p, and text may only appear inside w:r/w:t.
+ : Note content from the PM often emits multiple paragraphs or loose text runs; this
+ : pipeline expands, coalesces, and prepends the footnote marker.
+ :)
+declare %private function pmf:footnote-normalize-paragraph-inlines($nodes as node()*) as node()* {
+    for $n in $nodes
+    return
+        typeswitch($n)
+            case text() return
+                let $s := pmf:normalize-text(string($n), false())
+                where $s != '' and normalize-space($s) != ''
+                return
+                    <w:r>{ pmf:make-t($s) }</w:r>
+            default return
+                $n
+};
+
+declare %private function pmf:footnote-expand-paragraph($config as map(*), $p as element(w:p)) as element(w:p)* {
+    let $nested := $p/w:p
+    let $inline := pmf:footnote-normalize-paragraph-inlines(
+        pmf:clean-body($config, $p/node()[not(self::w:pPr) and not(self::w:p)])
+    )
+    let $has-inline := exists($inline[not(self::text()[normalize-space(.) = ""])])
+    return (
+        if ($has-inline) then
+            element { node-name($p) } {
+                $p/@*,
+                $p/w:pPr,
+                $inline
+            }
+        else
+            (),
+        for $np in $nested
+        return
+            pmf:footnote-expand-paragraph($config, $np)
+    )
+};
+
+declare %private function pmf:footnote-expand-top($config as map(*), $nodes as node()*) as node()* {
+    for $n in $nodes
+    return
+        typeswitch($n)
+            case element(w:p) return
+                pmf:footnote-expand-paragraph($config, $n)
+            default return
+                $n
+};
+
+declare %private function pmf:footnote-para-from-buffer($config as map(*), $buf as node()*) as element(w:p)? {
+    let $runs := pmf:footnote-normalize-paragraph-inlines($buf)
+    let $pstyle := pmf:footnote-text-style($config)
+    where exists($runs)
+    return
+        <w:p>
+            <w:pPr><w:pStyle w:val="{$pstyle}"/></w:pPr>
+            { $runs }
+        </w:p>
+};
+
+declare %private function pmf:footnote-coalesce-inlines-rec(
+    $config as map(*),
+    $nodes as node()*,
+    $buf as node()*,
+    $out as element()*
+) as element()* {
+    if (empty($nodes)) then
+        (
+            $out,
+            if (exists($buf)) then pmf:footnote-para-from-buffer($config, $buf) else ()
+        )
+    else
+        let $h := head($nodes)
+        let $t := tail($nodes)
+        return
+            if ($h instance of element(w:p) or $h instance of element(w:tbl)) then
+                pmf:footnote-coalesce-inlines-rec(
+                    $config,
+                    $t,
+                    (),
+                    (
+                        $out,
+                        if (exists($buf)) then pmf:footnote-para-from-buffer($config, $buf) else (),
+                        $h
+                    )
+                )
+            else
+                pmf:footnote-coalesce-inlines-rec($config, $t, ($buf, $h), $out)
+};
+
+declare %private function pmf:footnote-coalesce-inlines($config as map(*), $nodes as node()*) as element()* {
+    pmf:footnote-coalesce-inlines-rec($config, $nodes, (), ())
+};
+
+(: Two runs: marker keeps FootnoteReference; space is normal text so it is not superscript. :)
+declare %private function pmf:footnote-marker-run($config as map(*)) as element(w:r)+ {
+    (
+        <w:r>
+            {
+                if (pmf:has-char-style($config, "FootnoteReference")) then
+                    <w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr>
+                else
+                    ()
+            }
+            <w:footnoteRef/>
+        </w:r>,
+        <w:r>{ pmf:make-t(" ") }</w:r>
+    )
+};
+
+declare %private function pmf:footnote-marker-only-para($config as map(*)) as element(w:p) {
+    <w:p>
+        <w:pPr><w:pStyle w:val="{pmf:footnote-text-style($config)}"/></w:pPr>
+        { pmf:footnote-marker-run($config) }
+    </w:p>
+};
+
+declare %private function pmf:paragraph-with-footnote-marker($config as map(*), $p as element(w:p)) as element(w:p) {
+    let $pstyle := pmf:footnote-text-style($config)
+    let $pPr :=
+        if ($p/w:pPr) then
+            $p/w:pPr
+        else
+            <w:pPr><w:pStyle w:val="{$pstyle}"/></w:pPr>
+    return
+        element { node-name($p) } {
+            $pPr,
+            pmf:footnote-marker-run($config),
+            pmf:footnote-normalize-paragraph-inlines($p/node()[not(self::w:pPr)])
+        }
+};
+
+declare %private function pmf:prepend-footnote-ref-to-first-block($config as map(*), $blocks as element()*) as element()* {
+    if (empty($blocks)) then
+        pmf:footnote-marker-only-para($config)
+    else if (head($blocks) instance of element(w:p)) then
+        (pmf:paragraph-with-footnote-marker($config, head($blocks)), tail($blocks))
+    else
+        (pmf:footnote-marker-only-para($config), $blocks)
+};
+
+declare %private function pmf:footnote-body-blocks($config as map(*), $fn as element(docx:footnote)) as element()* {
+    let $cleaned := pmf:clean-body($config, $fn/node())
+    let $expanded := pmf:footnote-expand-top($config, $cleaned)
+    return
+        pmf:footnote-coalesce-inlines($config, $expanded)
+};
+
+declare %private function pmf:make-footnotes-xml($config as map(*), $footnotes as element(docx:footnote)*) as element(w:footnotes) {
     <w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
         xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         <w:footnote w:type="separator" w:id="-1">
@@ -499,14 +691,7 @@ declare %private function pmf:make-footnotes-xml($footnotes as element(docx:foot
             for $fn in $footnotes
             return
                 <w:footnote w:id="{$fn/@id}">
-                    <w:p>
-                        <w:pPr><w:pStyle w:val="FootnoteText"/></w:pPr>
-                        <w:r>
-                            <w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr>
-                            <w:footnoteRef/>
-                        </w:r>
-                        { pmf:clean-body($fn/node()) }
-                    </w:p>
+                    { pmf:prepend-footnote-ref-to-first-block($config, pmf:footnote-body-blocks($config, $fn)) }
                 </w:footnote>
         }
     </w:footnotes>
@@ -515,38 +700,93 @@ declare %private function pmf:make-footnotes-xml($footnotes as element(docx:foot
 (: ============================================================
    Private: style mapping
    First token in $class order that does not start with "tei-" becomes the Word
-   style id (w:val). Paragraph styles fall back to Normal; character styles to ().
+   style id (w:val) only if listed in template styles.xml (pmf:init). Paragraph
+   styles fall back to Normal; character styles to ().
 
-   Styles must exist in the template word/styles.xml.
+   If pmf:init was not run, unknown classes are still emitted (backward compatible).
    ============================================================ :)
 
 declare %private function pmf:user-style-classes($class as xs:string*) as xs:string* {
     $class[not(starts-with(., "tei-"))]
 };
 
-declare %private function pmf:resolve-para-style($class as xs:string+) as xs:string {
-    let $user := pmf:user-style-classes($class)
-    return
-        head((
-            for $c in $user
-            where normalize-space($c) != ""
-            return string($c)
-        ,
-            "Normal"
-        ))
+declare %private function pmf:has-para-style($config as map(*), $id as xs:string) as xs:boolean {
+    if (map:contains($config, "docx-para-style-ids")) then
+        $id = $config?docx-para-style-ids
+    else
+        true()
 };
 
-declare %private function pmf:resolve-char-style($class as xs:string+) as xs:string? {
+declare %private function pmf:has-char-style($config as map(*), $id as xs:string) as xs:boolean {
+    if (map:contains($config, "docx-char-style-ids")) then
+        $id = $config?docx-char-style-ids
+    else
+        true()
+};
+
+declare %private function pmf:has-table-style($config as map(*), $id as xs:string) as xs:boolean {
+    if (map:contains($config, "docx-table-style-ids")) then
+        $id = $config?docx-table-style-ids
+    else
+        true()
+};
+
+declare %private function pmf:footnote-text-style($config as map(*)) as xs:string {
+    if (pmf:has-para-style($config, "FootnoteText")) then
+        "FootnoteText"
+    else if (pmf:has-para-style($config, "Normal")) then
+        "Normal"
+    else
+        head(($config?docx-para-style-ids, "Normal"))
+};
+
+declare %private function pmf:resolve-heading-style($config as map(*), $lvl as xs:integer) as xs:string {
+    let $want := "Heading" || $lvl
+    return
+        if (pmf:has-para-style($config, $want)) then
+            $want
+        else if (pmf:has-para-style($config, "Normal")) then
+            "Normal"
+        else
+            head(($config?docx-para-style-ids, "Normal"))
+};
+
+declare %private function pmf:resolve-table-style($config as map(*)) as xs:string? {
+    if (pmf:has-table-style($config, "TableGrid")) then
+        "TableGrid"
+    else if (map:contains($config, "docx-table-style-ids") and exists($config?docx-table-style-ids)) then
+        head($config?docx-table-style-ids)
+    else
+        ()
+};
+
+declare %private function pmf:resolve-para-style($config as map(*), $class as xs:string+) as xs:string {
+    let $user := pmf:user-style-classes($class)
+    let $hit := head((
+        for $c in $user
+        where normalize-space($c) != "" and pmf:has-para-style($config, $c)
+        return string($c)
+    ))
+    return
+        if (exists($hit)) then
+            $hit
+        else if (pmf:has-para-style($config, "Normal")) then
+            "Normal"
+        else
+            head(($config?docx-para-style-ids, "Normal"))
+};
+
+declare %private function pmf:resolve-char-style($config as map(*), $class as xs:string+) as xs:string? {
     let $user := pmf:user-style-classes($class)
     return head((
         for $c in $user
-        where normalize-space($c) != ""
+        where normalize-space($c) != "" and pmf:has-char-style($config, $c)
         return string($c)
     ))
 };
 
 declare %private function pmf:run-props($config as map(*), $class as xs:string+) as element()* {
-    let $char-style := pmf:resolve-char-style($class)
+    let $char-style := pmf:resolve-char-style($config, $class)
     let $r-style :=
         if (exists($char-style)) then
             <w:rStyle w:val="{$char-style}"/>
