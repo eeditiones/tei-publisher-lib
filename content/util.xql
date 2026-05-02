@@ -105,6 +105,15 @@ declare variable $pmu:MODULES := map {
                 "prefix": "markdown"
             }
         ]
+    },
+    "docx": map {
+        "output": ["docx"],
+        "modules": [
+            map {
+                "uri": "http://www.tei-c.org/tei-simple/xquery/functions/docx-output",
+                "prefix": "docx"
+            }
+        ]
     }
 };
 

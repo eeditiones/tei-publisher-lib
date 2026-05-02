@@ -23,6 +23,10 @@
         <file>ext-epub.xql</file>
     </xquery>
     <xquery>
+        <namespace>http://www.tei-c.org/tei-simple/xquery/functions/docx-output</namespace>
+        <file>docx-functions.xql</file>
+    </xquery>
+    <xquery>
         <namespace>http://www.tei-c.org/tei-simple/xquery/functions/printcss</namespace>
         <file>ext-printcss.xql</file>
     </xquery>
