@@ -6,8 +6,10 @@ xquery version "3.1";
  : XML document. The caller converts this to a ZIP (.docx) using whatever
  : method is available (temp-collection + compression:zip(), Java streaming, etc.).
  :
- : Footnotes and hyperlinks use an inline sentinel pattern: sentinels emitted
- : during the tree-walk are collected and replaced in pmf:finish().
+ : Footnotes, hyperlinks, and inline images use a sentinel pattern: sentinels
+ : emitted during the tree-walk are resolved in pmf:finish(). Images are packed
+ : as /word/media/* parts. Binaries load via pmf:builtin-fetch-image-binary (HTTP(S),
+ : /db, paths relative to parameters/root). Optional docx-image-fetch overrides that.
  :
  : Word styles: the first class token not starting with tei- becomes the Word
  : w:styleId (paragraph or character) only if that id exists in the DOCX template
@@ -26,9 +28,12 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 declare namespace docx="http://existsolutions.com/ns/docx";
 
 import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counters";
+import module namespace http="http://expath.org/ns/http-client" at "java:org.exist.xquery.modules.httpclient.HTTPClientModule";
 
 declare variable $pmf:FOOTNOTE_COUNTER := "docx-fn-" || util:uuid();
 declare variable $pmf:LINK_COUNTER    := "docx-lnk-" || util:uuid();
+declare variable $pmf:GRAPHIC_COUNTER   := "docx-gr-" || util:uuid();
+declare variable $pmf:DOC_PR_COUNTER    := "docx-dp-" || util:uuid();
 declare variable $pmf:LIB_URI         := "http://existsolutions.com/apps/tei-publisher-lib";
 
 (: numId from numbering.xml: 1=ListBullet, 5=ListNumber :)
@@ -37,6 +42,7 @@ declare variable $pmf:ORDERED_NUM_ID := "5";
 
 declare variable $pmf:FN_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes";
 declare variable $pmf:HL_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
+declare variable $pmf:IMG_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 
 (: ============================================================
    Lifecycle: init / prepare / finish
@@ -68,17 +74,34 @@ declare function pmf:init($config as map(*), $node as node()*) {
 declare function pmf:prepare($config as map(*), $node as node()*) {
     counters:create($pmf:FOOTNOTE_COUNTER),
     counters:create($pmf:LINK_COUNTER),
+    counters:create($pmf:GRAPHIC_COUNTER),
+    counters:create($pmf:DOC_PR_COUNTER),
     ()
 };
 
 declare function pmf:finish($config as map(*), $input as node()*) {
     let $_ := counters:destroy($pmf:FOOTNOTE_COUNTER)
     let $_ := counters:destroy($pmf:LINK_COUNTER)
-    let $footnotes  := $input//docx:footnote
-    let $links      := $input//docx:hyperlink
-    let $body-nodes := pmf:clean-body($config, $input)
+    let $_ := counters:destroy($pmf:GRAPHIC_COUNTER)
+    let $_ := counters:destroy($pmf:DOC_PR_COUNTER)
+    let $footnotes := $input//docx:footnote
+    let $links := $input//docx:hyperlink
+    let $images := $input//docx:image
+    let $image-build := pmf:build-image-package($config, $images)
+    let $cfg2 := map:merge((
+        $config,
+        map { "docx-image-by-rid": $image-build?by-rid }
+    ), map { "duplicates": "use-last" })
+    let $body-nodes := pmf:wrap-top-level-runs-in-paragraphs(pmf:clean-body($cfg2, $input))
     return
-        pmf:assemble-package($config, $body-nodes, $footnotes, $links, exists($footnotes))
+        pmf:assemble-package(
+            $cfg2,
+            $body-nodes,
+            $footnotes,
+            $links,
+            exists($footnotes),
+            $image-build?items
+        )
 };
 
 (: ============================================================
@@ -231,9 +254,19 @@ declare function pmf:cell($config as map(*), $node as node(), $class as xs:strin
 
 declare function pmf:graphic($config as map(*), $node as node(), $class as xs:string+, $content,
     $url, $width, $height, $scale, $title) {
-    <w:p>
-        <w:r>{ pmf:make-t("[Image: " || $url || "]") }</w:r>
-    </w:p>
+    let $n := counters:increment($pmf:GRAPHIC_COUNTER)
+    let $rId := "rId" || (9 + $n)
+    let $docPrId := string(counters:increment($pmf:DOC_PR_COUNTER))
+    let $scale-n :=
+        if ($scale castable as xs:double) then
+            xs:double($scale)
+        else
+            ()
+    let $emu := pmf:graphic-display-emus(string($width), string($height), $scale-n)
+    let $title-str := normalize-space(string-join($title, ""))
+    return
+        <docx:image rId="{$rId}" url="{$url}" cx="{$emu[1]}" cy="{$emu[2]}" docPrId="{$docPrId}"
+            title="{$title-str}"/>
 };
 
 declare function pmf:weblink($config as map(*), $node as node(), $class as xs:string+, $content,
@@ -318,6 +351,210 @@ declare function pmf:apply-children($config as map(*), $node as node(), $content
 };
 
 (: ============================================================
+   Private: embedded images (docx:image sentinels → media parts + w:drawing)
+   ============================================================ :)
+
+declare %private function pmf:image-file-extension($url as xs:string) as xs:string {
+    let $path := replace($url, "^.*[/\\]", "")
+    let $ext := lower-case(replace($path, "^.*\.([^.]+)$", "$1"))
+    return
+        if ($ext = lower-case($path) or $ext = "") then
+            "png"
+        else if ($ext = "jpg") then
+            "jpeg"
+        else
+            $ext
+};
+
+declare %private function pmf:image-content-type-from-ext($ext as xs:string) as xs:string {
+    switch (lower-case($ext))
+        case "jpeg" return "image/jpeg"
+        case "jpg" return "image/jpeg"
+        case "png" return "image/png"
+        case "gif" return "image/gif"
+        case "bmp" return "image/bmp"
+        case "tif" return "image/tiff"
+        case "tiff" return "image/tiff"
+        case "webp" return "image/webp"
+        default return "image/png"
+};
+
+declare %private function pmf:length-to-emu($s as xs:string?) as xs:integer? {
+    let $t := normalize-space(string-join($s, ""))
+    where string-length($t) gt 0
+    return
+        if (matches($t, "in\s*$", "i")) then
+            xs:integer(round(xs:double(replace($t, "in\s*$", "", "i")) * 914400))
+        else if (matches($t, "cm\s*$", "i")) then
+            xs:integer(round(xs:double(replace($t, "cm\s*$", "", "i")) * 360000))
+        else if (matches($t, "pt\s*$", "i")) then
+            xs:integer(round(xs:double(replace($t, "pt\s*$", "", "i")) * 12700))
+        else if (matches($t, "px\s*$", "i")) then
+            xs:integer(round(xs:double(replace($t, "px\s*$", "", "i")) * 9525))
+        else if (matches($t, "^[0-9]+(\.[0-9]+)?$")) then
+            xs:integer(round(xs:double($t) * 9525))
+        else
+            ()
+};
+
+declare %private function pmf:graphic-display-emus(
+    $width as xs:string?,
+    $height as xs:string?,
+    $scale as xs:double?
+) as xs:integer+ {
+    let $factor := if (exists($scale)) then $scale else 1.0e0
+    let $w := head((pmf:length-to-emu($width), 3600000))
+    let $h := head((pmf:length-to-emu($height), 2743200))
+    return
+        (
+            max((1, xs:integer(round($w * $factor)))),
+            max((1, xs:integer(round($h * $factor))))
+        )
+};
+
+declare %private function pmf:builtin-fetch-image-binary($config as map(*), $url as xs:string) as xs:base64Binary? {
+    if (starts-with($url, "http://") or starts-with($url, "https://")) then
+        try {
+            let $req := <http:request method="GET" href="{$url}"/>
+            let $res := http:send-request($req)
+            return
+                if ($res[1]/@status = 200) then
+                    xs:base64Binary($res[2])
+                else
+                    ()
+        } catch * {
+            ()
+        }
+    else if (starts-with($url, "/db")) then
+        util:binary-doc($url)
+    else
+        let $root := head(($config?parameters?root, $config?root))
+        let $base := if (exists($root)) then base-uri($root) else ()
+        return
+            if (exists($base) and not(contains($url, "://"))) then
+                let $abs := string(resolve-uri($url, $base))
+                return
+                    if (starts-with($abs, "/db")) then
+                        util:binary-doc($abs)
+                    else
+                        ()
+            else
+                ()
+};
+
+declare %private function pmf:default-fetch-image-binary($config as map(*), $url as xs:string) as xs:base64Binary? {
+    let $fn := head(($config?docx-image-fetch, $config?parameters?docx-image-fetch))
+    return
+        if (exists($fn) and $fn instance of function(*)) then
+            try {
+                $fn($config, $url)
+            } catch * {
+                ()
+            }
+        else
+            pmf:builtin-fetch-image-binary($config, $url)
+};
+
+declare %private function pmf:build-image-package(
+    $config as map(*),
+    $sentinels as element(docx:image)*
+) as map(*) {
+    let $packed :=
+        for $s in $sentinels
+        let $binary := pmf:default-fetch-image-binary($config, string($s/@url))
+        where exists($binary)
+        return map { "sentinel": $s, "binary": $binary }
+    let $items :=
+        for $p at $idx in $packed
+        let $s := $p?sentinel
+        let $ext := pmf:image-file-extension(string($s/@url))
+        return
+            map {
+                "rId": string($s/@rId),
+                "target": "media/image" || $idx || "." || $ext,
+                "part-name": "/word/media/image" || $idx || "." || $ext,
+                "binary": $p?binary,
+                "content-type": pmf:image-content-type-from-ext($ext)
+            }
+    return
+        map {
+            "items": $items,
+            "by-rid":
+                if (empty($items)) then
+                    map {}
+                else
+                    map:merge(
+                        for $i in $items
+                        return map:entry($i?rId, true())
+                    )
+        }
+};
+
+(: One w:r only: the PM usually wraps block content in w:p; an extra w:p here would nest
+   paragraphs and Word will not display the drawing. Top-level w:r is wrapped in pmf:finish. :)
+declare %private function pmf:make-image-run($img as element(docx:image)) as element(w:r) {
+    let $embed := string($img/@rId)
+    let $cx := string($img/@cx)
+    let $cy := string($img/@cy)
+    let $raw := string($img/@title)
+    let $name :=
+        if (normalize-space($raw) != "") then
+            substring(translate($raw, codepoints-to-string((10, 13, 9)), "   "), 1, 250)
+        else
+            "Image"
+    return
+        <w:r xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+            <w:drawing>
+                <wp:inline distT="0" distB="0" distL="0" distR="0">
+                    <wp:extent cx="{$cx}" cy="{$cy}"/>
+                    <wp:docPr id="{string($img/@docPrId)}" name="{$name}" descr="{$name}"/>
+                    <wp:cNvGraphicFramePr>
+                        <a:graphicFrameLocks noChangeAspect="1"/>
+                    </wp:cNvGraphicFramePr>
+                    <a:graphic>
+                        <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                            <pic:pic>
+                                <pic:nvPicPr>
+                                    <pic:cNvPr id="0" name=""/>
+                                    <pic:cNvPicPr/>
+                                </pic:nvPicPr>
+                                <pic:blipFill>
+                                    <a:blip r:embed="{$embed}"
+                                        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+                                    <a:stretch>
+                                        <a:fillRect/>
+                                    </a:stretch>
+                                </pic:blipFill>
+                                <pic:spPr>
+                                    <a:xfrm>
+                                        <a:off x="0" y="0"/>
+                                        <a:ext cx="{$cx}" cy="{$cy}"/>
+                                    </a:xfrm>
+                                    <a:prstGeom prst="rect">
+                                        <a:avLst/>
+                                    </a:prstGeom>
+                                </pic:spPr>
+                            </pic:pic>
+                        </a:graphicData>
+                    </a:graphic>
+                </wp:inline>
+            </w:drawing>
+        </w:r>
+};
+
+declare %private function pmf:wrap-top-level-runs-in-paragraphs($nodes as node()*) as node()* {
+    for $n in $nodes
+    return
+        typeswitch($n)
+            case element(w:r) return
+                <w:p>{ $n }</w:p>
+            default return
+                $n
+};
+
+(: ============================================================
    Private: body cleaning (sentinel replacement)
    ============================================================ :)
 
@@ -343,6 +580,14 @@ declare %private function pmf:clean-body($config as map(*), $nodes as node()*) a
                     attribute { QName("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r:id") } { $node/@rId },
                     pmf:clean-body($config, $node/node())
                 }
+            case element(docx:image) return
+                if (
+                    map:contains($config, "docx-image-by-rid")
+                    and map:contains($config?docx-image-by-rid, string($node/@rId))
+                ) then
+                    pmf:make-image-run($node)
+                else
+                    <w:r>{ pmf:make-t("[Image: " || string($node/@url) || "]") }</w:r>
             case element() return
                 element { node-name($node) } {
                     $node/@*,
@@ -377,12 +622,13 @@ declare %private function pmf:assemble-package(
     $body-nodes     as node()*,
     $footnotes      as element(docx:footnote)*,
     $links          as element(docx:hyperlink)*,
-    $has-footnotes  as xs:boolean
+    $has-footnotes  as xs:boolean,
+    $image-items    as map(*)*
 ) as element(pkg:package) {
     let $sectPr        := pmf:load-template-xml("word/document.xml")//w:sectPr
     let $doc-xml       := pmf:make-document-xml($body-nodes, $sectPr)
-    let $doc-rels      := pmf:make-document-rels($links, $has-footnotes)
-    let $content-types := pmf:make-content-types($has-footnotes)
+    let $doc-rels      := pmf:make-document-rels($links, $has-footnotes, $image-items)
+    let $content-types := pmf:make-content-types($has-footnotes, $image-items)
     return
         <pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
             <pkg:part pkg:name="/[Content_Types].xml" pkg:contentType="application/xml">
@@ -400,6 +646,14 @@ declare %private function pmf:assemble-package(
                 pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
                 <pkg:xmlData>{ $doc-rels }</pkg:xmlData>
             </pkg:part>
+            {
+                for $im in $image-items
+                return
+                    <pkg:part pkg:name="{$im?part-name}"
+                        pkg:contentType="{$im?content-type}" pkg:compression="store">
+                        <pkg:binaryData>{ $im?binary }</pkg:binaryData>
+                    </pkg:part>
+            }
             {
                 if ($has-footnotes) then (
                     <pkg:part pkg:name="/word/footnotes.xml"
@@ -482,7 +736,8 @@ declare %private function pmf:make-document-xml($body-nodes as node()*, $sectPr 
 
 declare %private function pmf:make-document-rels(
     $links         as element(docx:hyperlink)*,
-    $has-footnotes as xs:boolean
+    $has-footnotes as xs:boolean,
+    $image-items   as map(*)*
 ) as element(rel:Relationships) {
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml"   Target="../customXml/item1.xml"/>
@@ -499,6 +754,11 @@ declare %private function pmf:make-document-rels(
             else ()
         }
         {
+            for $im in $image-items
+            return
+                <Relationship Id="{$im?rId}" Type="{$pmf:IMG_REL_TYPE}" Target="{$im?target}"/>
+        }
+        {
             for $link in $links
             return
                 <Relationship Id="{$link/@rId}" Type="{$pmf:HL_REL_TYPE}"
@@ -507,15 +767,27 @@ declare %private function pmf:make-document-rels(
     </Relationships>
 };
 
-declare %private function pmf:make-content-types($has-footnotes as xs:boolean) as element() {
+declare %private function pmf:make-content-types($has-footnotes as xs:boolean, $image-items as map(*)*) as element() {
     <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
         <Default Extension="xml"  ContentType="application/xml"/>
         <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
         <Default Extension="jpeg" ContentType="image/jpeg"/>
+        <Default Extension="jpg"  ContentType="image/jpeg"/>
+        <Default Extension="png"  ContentType="image/png"/>
+        <Default Extension="gif"  ContentType="image/gif"/>
+        <Default Extension="bmp"  ContentType="image/bmp"/>
+        <Default Extension="tif"  ContentType="image/tiff"/>
+        <Default Extension="tiff" ContentType="image/tiff"/>
+        <Default Extension="webp" ContentType="image/webp"/>
         <Override PartName="/word/document.xml"         ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
         { if ($has-footnotes) then
             <Override PartName="/word/footnotes.xml"    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>
           else () }
+        {
+            for $im in $image-items
+            return
+                <Override PartName="{$im?part-name}" ContentType="{$im?content-type}"/>
+        }
         <Override PartName="/customXml/itemProps1.xml"  ContentType="application/vnd.openxmlformats-officedocument.customXmlProperties+xml"/>
         <Override PartName="/word/numbering.xml"        ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
         <Override PartName="/word/styles.xml"           ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
