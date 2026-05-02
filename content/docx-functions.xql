@@ -134,11 +134,76 @@ declare function pmf:heading($config as map(*), $node as node(), $class as xs:st
         </w:p>
 };
 
+(: Do not wrap the whole block in one w:p: nested w:p (heading, paragraph, figure caption)
+   must stay real paragraphs. A single outer w:p with nested w:p caused flatten-paragraph to
+   merge all loose w:r (e.g. figure drawings) into the first slice, so images jumped before
+   headings and captions drifted away from figures. :)
 declare function pmf:block($config as map(*), $node as node(), $class as xs:string+, $content) {
-    <w:p>
-        <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($config, $class)}"/></w:pPr>
-        { pmf:apply-runs($config, $node, $class, $content) }
-    </w:p>
+    pmf:block-children($config, $node, $class, $config?apply-children($config, $node, $content))
+};
+
+declare %private function pmf:block-item-is-structural($item as item()) as xs:boolean {
+    $item instance of element(w:p) or $item instance of element(w:tbl)
+};
+
+declare %private function pmf:block-take-leading-inlines($items as item()*) as item()* {
+    if (empty($items)) then
+        ()
+    else if (pmf:block-item-is-structural(head($items))) then
+        ()
+    else
+        (head($items), pmf:block-take-leading-inlines(tail($items)))
+};
+
+(: Whitespace-only text between block children used to live inside one outer w:p and was dropped
+   when flatten-paragraph removed an empty shell. block-children must not emit a w:p for that. :)
+declare %private function pmf:block-item-has-visible-content($i as item()) as xs:boolean {
+    typeswitch ($i)
+        case text() return
+            normalize-space(string($i)) != ""
+        case element(w:r) return
+            exists($i/descendant::w:t[normalize-space(string(.)) != ""])
+            or exists($i/descendant::w:drawing)
+            or exists($i/descendant::w:footnoteReference)
+            or exists($i/descendant::w:tab)
+            or exists($i/descendant::w:br)
+            or exists($i/descendant::w:object)
+        case element() return
+            true()
+        default return
+            true()
+};
+
+declare %private function pmf:block-run-has-visible-content($run as item()*) as xs:boolean {
+    some $i in $run satisfies pmf:block-item-has-visible-content($i)
+};
+
+declare %private function pmf:block-children($config as map(*), $node as node(), $class as xs:string+, $items as item()*) as node()* {
+    if (empty($items)) then
+        ()
+    else
+        let $h := head($items)
+        let $t := tail($items)
+        return
+            typeswitch ($h)
+                case element(w:p) return
+                    ($h, pmf:block-children($config, $node, $class, $t))
+                case element(w:tbl) return
+                    ($h, pmf:block-children($config, $node, $class, $t))
+                default return
+                    let $run := ($h, pmf:block-take-leading-inlines($t))
+                    let $rest := subsequence($items, 1 + count($run))
+                    return
+                        if (pmf:block-run-has-visible-content($run)) then
+                            (
+                                <w:p>
+                                    <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($config, $class)}"/></w:pPr>
+                                    { $run }
+                                </w:p>,
+                                pmf:block-children($config, $node, $class, $rest)
+                            )
+                        else
+                            pmf:block-children($config, $node, $class, $rest)
 };
 
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -312,6 +377,11 @@ declare function pmf:skip($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:caption($config as map(*), $node as node(), $class as xs:string+, $content) {
+    pmf:caption($config, $node, $class, $content, ())
+};
+
+declare function pmf:caption($config as map(*), $node as node(), $class as xs:string+, $content,
+    $prefix as xs:string?) {
     let $pstyle :=
         if (pmf:has-para-style($config, "Caption")) then
             "Caption"
@@ -320,12 +390,24 @@ declare function pmf:caption($config as map(*), $node as node(), $class as xs:st
     return
         <w:p>
             <w:pPr><w:pStyle w:val="{$pstyle}"/></w:pPr>
+            {
+                if (exists($prefix) and normalize-space($prefix) != "") then
+                    <w:r>{ pmf:make-t($prefix) }</w:r>
+                else
+                    ()
+            }
             { pmf:apply-runs($config, $node, $class, $content) }
         </w:p>
 };
 
-declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content) {
-    $config?apply-children($config, $node, $content)
+declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content, $title) {
+    (
+        $config?apply-children($config, $node, $content),
+        if ($title) then
+            pmf:caption($config, $node, ("tei-caption"), $title)
+        else
+            ()
+    )
 };
 
 declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content,
