@@ -36,9 +36,16 @@ declare variable $pmf:GRAPHIC_COUNTER   := "docx-gr-" || util:uuid();
 declare variable $pmf:DOC_PR_COUNTER    := "docx-dp-" || util:uuid();
 declare variable $pmf:LIB_URI         := "http://existsolutions.com/apps/tei-publisher-lib";
 
-(: numId from numbering.xml: 1=ListBullet, 5=ListNumber :)
+(: Template numIds (numbering.xml): 1=ListBullet, 5=ListNumber — used only as listItem fallback. :)
 declare variable $pmf:BULLET_NUM_ID  := "1";
 declare variable $pmf:ORDERED_NUM_ID := "5";
+(: Each list() allocates a new w:num (numId ≥ LIST_NUM_MIN). Use abstract 9/10 (not 7/8):
+   7 and 8 bind w:pStyle ListNumber/ListBullet; those styles hard-code template numIds 5/1,
+   so Word kept one global counter. 9/10 match layout but omit pStyle so instances stay separate. :)
+declare variable $pmf:LIST_NUM_MIN            := 100;
+declare variable $pmf:ORDERED_LIST_ABSTRACT := "9";
+declare variable $pmf:BULLET_LIST_ABSTRACT  := "10";
+declare variable $pmf:LIST_NUM_COUNTER        := "docx-lst-" || util:uuid();
 
 declare variable $pmf:FN_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes";
 declare variable $pmf:HL_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
@@ -76,6 +83,7 @@ declare function pmf:prepare($config as map(*), $node as node()*) {
     counters:create($pmf:LINK_COUNTER),
     counters:create($pmf:GRAPHIC_COUNTER),
     counters:create($pmf:DOC_PR_COUNTER),
+    counters:create($pmf:LIST_NUM_COUNTER),
     ()
 };
 
@@ -84,6 +92,7 @@ declare function pmf:finish($config as map(*), $input as node()*) {
     let $_ := counters:destroy($pmf:LINK_COUNTER)
     let $_ := counters:destroy($pmf:GRAPHIC_COUNTER)
     let $_ := counters:destroy($pmf:DOC_PR_COUNTER)
+    let $_ := counters:destroy($pmf:LIST_NUM_COUNTER)
     let $footnotes := $input//docx:footnote
     let $links := $input//docx:hyperlink
     let $images := $input//docx:image
@@ -92,6 +101,7 @@ declare function pmf:finish($config as map(*), $input as node()*) {
         $config,
         map { "docx-image-by-rid": $image-build?by-rid }
     ), map { "duplicates": "use-last" })
+    let $list-nums := $input//docx:list-instance
     let $body-nodes := pmf:wrap-top-level-runs-in-paragraphs(pmf:clean-body($cfg2, $input))
     return
         pmf:assemble-package(
@@ -100,7 +110,8 @@ declare function pmf:finish($config as map(*), $input as node()*) {
             $footnotes,
             $links,
             exists($footnotes),
-            $image-build?items
+            $image-build?items,
+            $list-nums
         )
 };
 
@@ -266,13 +277,22 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
-    let $numId := if ($type = "ordered") then $pmf:ORDERED_NUM_ID else $pmf:BULLET_NUM_ID
+    let $abstract :=
+        if ($type = "ordered") then
+            $pmf:ORDERED_LIST_ABSTRACT
+        else
+            $pmf:BULLET_LIST_ABSTRACT
+    let $seq := counters:increment($pmf:LIST_NUM_COUNTER)
+    let $numId := xs:integer($pmf:LIST_NUM_MIN) + $seq - 1
     let $config := map:merge(($config, map {
-        "list-num-id": $numId,
-        "list-level":  (($config?list-level, 0)[1] + 1)
+        "list-num-id": string($numId),
+        "list-level": (($config?list-level, 0)[1] + 1)
     }), map { "duplicates": "use-last" })
     return
-        $config?apply-children($config, $node, $content)
+        (
+            <docx:list-instance numId="{string($numId)}" abstractNumId="{$abstract}"/>,
+            $config?apply-children($config, $node, $content)
+        )
 };
 
 declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
@@ -645,6 +665,7 @@ declare %private function pmf:clean-body($config as map(*), $nodes as node()*) a
     return
         typeswitch($node)
             case element(docx:footnote) return ()
+            case element(docx:list-instance) return ()
             case element(docx:footnote-ref) return
                 <w:r>
                     {
@@ -699,13 +720,31 @@ declare %private function pmf:flatten-paragraph($config as map(*), $p as element
    Private: package assembly
    ============================================================ :)
 
+declare %private function pmf:make-numbering-xml($extra as element(docx:list-instance)*) as element() {
+    let $root := pmf:load-template-xml("word/numbering.xml")/*
+    return
+        element { node-name($root) } {
+            $root/@*,
+            $root/node(),
+            for $x in $extra
+            return
+                <w:num w:numId="{string($x/@numId)}">
+                    <w:abstractNumId w:val="{string($x/@abstractNumId)}"/>
+                    <w:lvlOverride w:ilvl="0">
+                        <w:startOverride w:val="1"/>
+                    </w:lvlOverride>
+                </w:num>
+        }
+};
+
 declare %private function pmf:assemble-package(
     $config         as map(*),
     $body-nodes     as node()*,
     $footnotes      as element(docx:footnote)*,
     $links          as element(docx:hyperlink)*,
     $has-footnotes  as xs:boolean,
-    $image-items    as map(*)*
+    $image-items    as map(*)*,
+    $list-nums      as element(docx:list-instance)*
 ) as element(pkg:package) {
     let $sectPr        := pmf:load-template-xml("word/document.xml")//w:sectPr
     let $doc-xml       := pmf:make-document-xml($body-nodes, $sectPr)
@@ -760,7 +799,7 @@ declare %private function pmf:assemble-package(
             </pkg:part>
             <pkg:part pkg:name="/word/numbering.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/numbering.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:make-numbering-xml($list-nums) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/settings.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml">
