@@ -50,6 +50,7 @@ declare variable $pmf:LIST_NUM_COUNTER        := "docx-lst-" || util:uuid();
 declare variable $pmf:FN_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes";
 declare variable $pmf:HL_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 declare variable $pmf:IMG_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+declare variable $pmf:NS_MC := "http://schemas.openxmlformats.org/markup-compatibility/2006";
 
 (: ============================================================
    Lifecycle: init / prepare / finish
@@ -724,7 +725,11 @@ declare %private function pmf:make-numbering-xml($extra as element(docx:list-ins
     let $root := pmf:load-template-xml("word/numbering.xml")/*
     return
         element { node-name($root) } {
-            $root/@*,
+            (: Rebuilding the root drops most xmlns:* from the template; mc:Ignorable then names
+               prefixes (w14, wp14) that are no longer declared and Word refuses the package. :)
+            $root/@*[
+                not(namespace-uri(.) = $pmf:NS_MC and local-name(.) = "Ignorable")
+            ],
             $root/node(),
             for $x in $extra
             return
