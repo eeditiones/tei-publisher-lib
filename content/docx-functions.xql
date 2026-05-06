@@ -50,14 +50,24 @@ declare variable $pmf:LIST_NUM_COUNTER        := "docx-lst-" || util:uuid();
 declare variable $pmf:FN_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes";
 declare variable $pmf:HL_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 declare variable $pmf:IMG_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+declare variable $pmf:THUMB_REL_TYPE := "http://schemas.openxmlformats.org/officeDocument/2006/relationships/metadata/thumbnail";
 declare variable $pmf:NS_MC := "http://schemas.openxmlformats.org/markup-compatibility/2006";
+declare variable $pmf:NS_PKG_RELS := "http://schemas.openxmlformats.org/package/2006/relationships";
+(: Only these OPC root relationships are emitted; anything else (customXml, signatures, …)
+   would point at parts we do not assemble and Word will offer recovery. :)
+declare variable $pmf:ROOT_REL_TYPES_ALLOWED := (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+    "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
+    $pmf:THUMB_REL_TYPE
+);
 
 (: ============================================================
    Lifecycle: init / prepare / finish
    ============================================================ :)
 
 declare function pmf:init($config as map(*), $node as node()*) {
-    let $styles-doc := pmf:load-template-xml("word/styles.xml")
+    let $styles-doc := pmf:load-template-xml($config, "word/styles.xml")
     let $styles := $styles-doc//w:style
     return
         map:merge((
@@ -74,6 +84,20 @@ declare function pmf:init($config as map(*), $node as node()*) {
                 "docx-table-style-ids": distinct-values(
                     for $id in $styles[@w:type = "table"]/@w:styleId
                     return string($id)[normalize-space(.) != ""]
+                ),
+                "docx-para-style-id-by-name": map:merge(
+                    for $s in $styles[@w:type = "paragraph"]
+                    let $id := string($s/@w:styleId)
+                    let $name := lower-case(normalize-space(string($s/w:name/@w:val)))
+                    where $id != "" and $name != ""
+                    return map:entry($name, $id)
+                ),
+                "docx-table-style-id-by-name": map:merge(
+                    for $s in $styles[@w:type = "table"]
+                    let $id := string($s/@w:styleId)
+                    let $name := lower-case(normalize-space(string($s/w:name/@w:val)))
+                    where $id != "" and $name != ""
+                    return map:entry($name, $id)
                 )
             }
         ), map { "duplicates": "use-last" })
@@ -357,17 +381,33 @@ declare function pmf:graphic($config as map(*), $node as node(), $class as xs:st
 
 declare function pmf:weblink($config as map(*), $node as node(), $class as xs:string+, $content,
     $url, $target, $optional) {
-    let $rId := "rLnk" || counters:increment($pmf:LINK_COUNTER)
+    let $href := normalize-space(string($url))
     return
-        <docx:hyperlink href="{$url}" rId="{$rId}">
-            { $config?apply-children($config, $node, $content) }
-        </docx:hyperlink>
+        if ($href = "") then
+            $config?apply-children($config, $node, $content)
+        else
+            let $rId := "rLnk" || counters:increment($pmf:LINK_COUNTER)
+            return
+                <docx:hyperlink href="{$href}" rId="{$rId}">
+                    { $config?apply-children($config, $node, $content) }
+                </docx:hyperlink>
 };
 
 declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $url) {
-    <w:hyperlink w:anchor="{$url}">
-        { pmf:apply-runs($config, $node, $class, $content) }
-    </w:hyperlink>
+    (: w:hyperlink must have a non-empty w:anchor or r:id; empty anchors break Word. Strip leading # for TEI ptr/ref-style values. :)
+    let $raw := normalize-space(string($url))
+    let $anchor :=
+        if (starts-with($raw, "#")) then
+            normalize-space(substring($raw, 2))
+        else
+            $raw
+    return
+        if ($anchor = "") then
+            pmf:apply-runs($config, $node, $class, $content)
+        else
+            <w:hyperlink w:anchor="{$anchor}">
+                { pmf:apply-runs($config, $node, $class, $content) }
+            </w:hyperlink>
 };
 
 declare function pmf:break($config as map(*), $node as node(), $class as xs:string+, $content,
@@ -562,20 +602,29 @@ declare %private function pmf:build-image-package(
     $config as map(*),
     $sentinels as element(docx:image)*
 ) as map(*) {
+    (: Name each media part from the drawing relationship id (rId10 → media/image10.*), not
+       from the pack sequence index. Otherwise document-order packing can assign image1.png to
+       rId11 etc., which mis-binds binaries and can make Word reject the package. :)
     let $packed :=
         for $s in $sentinels
         let $binary := pmf:default-fetch-image-binary($config, string($s/@url))
         where exists($binary)
         return map { "sentinel": $s, "binary": $binary }
     let $items :=
-        for $p at $idx in $packed
+        for $p in $packed
         let $s := $p?sentinel
         let $ext := pmf:image-file-extension(string($s/@url))
+        let $rid-suffix := replace(normalize-space(string($s/@rId)), "^rId", "")
+        let $base :=
+            if ($rid-suffix != "") then
+                "image" || $rid-suffix
+            else
+                "image-unknown"
         return
             map {
                 "rId": string($s/@rId),
-                "target": "media/image" || $idx || "." || $ext,
-                "part-name": "/word/media/image" || $idx || "." || $ext,
+                "target": "media/" || $base || "." || $ext,
+                "part-name": "/word/media/" || $base || "." || $ext,
                 "binary": $p?binary,
                 "content-type": pmf:image-content-type-from-ext($ext)
             }
@@ -599,6 +648,10 @@ declare %private function pmf:make-image-run($img as element(docx:image)) as ele
     let $embed := string($img/@rId)
     let $cx := string($img/@cx)
     let $cy := string($img/@cy)
+    let $doc-pr := xs:integer(string($img/@docPrId))
+    (: Word may reject many drawings that all use pic:cNvPr id="0"; keep wp:docPr id as-is and
+       assign a disjoint high-range id for cNvPr (must not equal wp:docPr/@id in the same shape). :)
+    let $c-nv-id := 32768 + $doc-pr
     let $raw := string($img/@title)
     let $name :=
         if (normalize-space($raw) != "") then
@@ -620,7 +673,7 @@ declare %private function pmf:make-image-run($img as element(docx:image)) as ele
                         <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
                             <pic:pic>
                                 <pic:nvPicPr>
-                                    <pic:cNvPr id="0" name=""/>
+                                    <pic:cNvPr id="{$c-nv-id}" name=""/>
                                     <pic:cNvPicPr/>
                                 </pic:nvPicPr>
                                 <pic:blipFill>
@@ -680,10 +733,13 @@ declare %private function pmf:clean-body($config as map(*), $nodes as node()*) a
             case element(w:p) return
                 pmf:flatten-paragraph($config, $node)
             case element(docx:hyperlink) return
-                element { QName("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:hyperlink") } {
-                    attribute { QName("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r:id") } { $node/@rId },
+                if (normalize-space(string($node/@href)) = "") then
                     pmf:clean-body($config, $node/node())
-                }
+                else
+                    element { QName("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:hyperlink") } {
+                        attribute { QName("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "r:id") } { $node/@rId },
+                        pmf:clean-body($config, $node/node())
+                    }
             case element(docx:image) return
                 if (
                     map:contains($config, "docx-image-by-rid")
@@ -721,8 +777,67 @@ declare %private function pmf:flatten-paragraph($config as map(*), $p as element
    Private: package assembly
    ============================================================ :)
 
-declare %private function pmf:make-numbering-xml($extra as element(docx:list-instance)*) as element() {
-    let $root := pmf:load-template-xml("word/numbering.xml")/*
+(: Minimal templates (e.g. python-docx) often omit abstractNum 9/10; list() still emits w:num
+   referencing $pmf:ORDERED_LIST_ABSTRACT / $pmf:BULLET_LIST_ABSTRACT. Without these definitions
+   Word treats numbering.xml as corrupt. :)
+declare %private function pmf:fallback-abstract-num-ordered() as element(w:abstractNum) {
+    <w:abstractNum w:abstractNumId="{$pmf:ORDERED_LIST_ABSTRACT}">
+        <w:nsid w:val="FFFFFF90"/>
+        <w:multiLevelType w:val="singleLevel"/>
+        <w:tmpl w:val="E1A62B41"/>
+        <w:lvl w:ilvl="0">
+            <w:start w:val="1"/>
+            <w:numFmt w:val="decimal"/>
+            <w:lvlText w:val="%1."/>
+            <w:lvlJc w:val="left"/>
+            <w:pPr>
+                <w:tabs>
+                    <w:tab w:val="num" w:pos="360"/>
+                </w:tabs>
+                <w:ind w:left="360" w:hanging="360"/>
+            </w:pPr>
+        </w:lvl>
+    </w:abstractNum>
+};
+
+declare %private function pmf:fallback-abstract-num-bullet() as element(w:abstractNum) {
+    <w:abstractNum w:abstractNumId="{$pmf:BULLET_LIST_ABSTRACT}">
+        <w:nsid w:val="FFFFFF91"/>
+        <w:multiLevelType w:val="singleLevel"/>
+        <w:tmpl w:val="F29761A6"/>
+        <w:lvl w:ilvl="0">
+            <w:start w:val="1"/>
+            <w:numFmt w:val="bullet"/>
+            <w:lvlText w:val=""/>
+            <w:lvlJc w:val="left"/>
+            <w:pPr>
+                <w:tabs>
+                    <w:tab w:val="num" w:pos="360"/>
+                </w:tabs>
+                <w:ind w:left="360" w:hanging="360"/>
+            </w:pPr>
+            <w:rPr>
+                <w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/>
+            </w:rPr>
+        </w:lvl>
+    </w:abstractNum>
+};
+
+declare %private function pmf:make-numbering-xml($config as map(*), $extra as element(docx:list-instance)*) as element() {
+    let $root := pmf:load-template-xml($config, "word/numbering.xml")/*
+    let $abstracts := $root/w:abstractNum
+    let $nums := $root/w:num
+    let $abstract-ids := $abstracts ! xs:string(@w:abstractNumId)
+    let $inject-abstracts := (
+        if ($pmf:ORDERED_LIST_ABSTRACT = $abstract-ids) then
+            ()
+        else
+            pmf:fallback-abstract-num-ordered(),
+        if ($pmf:BULLET_LIST_ABSTRACT = $abstract-ids) then
+            ()
+        else
+            pmf:fallback-abstract-num-bullet()
+    )
     return
         element { node-name($root) } {
             (: Rebuilding the root drops most xmlns:* from the template; mc:Ignorable then names
@@ -730,7 +845,9 @@ declare %private function pmf:make-numbering-xml($extra as element(docx:list-ins
             $root/@*[
                 not(namespace-uri(.) = $pmf:NS_MC and local-name(.) = "Ignorable")
             ],
-            $root/node(),
+            $abstracts,
+            $inject-abstracts,
+            $nums,
             for $x in $extra
             return
                 <w:num w:numId="{string($x/@numId)}">
@@ -739,6 +856,110 @@ declare %private function pmf:make-numbering-xml($extra as element(docx:list-ins
                         <w:startOverride w:val="1"/>
                     </w:lvlOverride>
                 </w:num>
+        }
+};
+
+(: eXist strips namespace declarations that are only referenced as text inside mc:Ignorable.
+   Rebuilding the root element without mc:Ignorable avoids Word rejecting the part. :)
+declare %private function pmf:strip-mc-ignorable($el as element()) as element() {
+    element { node-name($el) } {
+        $el/@*[
+            not(namespace-uri(.) = $pmf:NS_MC and local-name(.) = "Ignorable")
+        ],
+        $el/node()
+    }
+};
+
+(: One OPC Relationship row with stable namespace (avoids eXist xmlns="" on children). :)
+declare %private function pmf:opc-rel(
+    $id as xs:string,
+    $type as xs:string,
+    $target as xs:string,
+    $target-mode as xs:string?
+) as element() {
+    element { QName($pmf:NS_PKG_RELS, "Relationship") } {
+        attribute Id { $id },
+        attribute Type { $type },
+        attribute Target { $target },
+        if (exists($target-mode) and normalize-space($target-mode) != "") then
+            attribute TargetMode { $target-mode }
+        else
+            ()
+    }
+};
+
+(: Normalize a stored *.rels part away from rel:Relationship / duplicate xmlns. :)
+declare %private function pmf:canonical-opc-rels($root as node()) as element() {
+    let $base :=
+        if ($root instance of document-node()) then
+            $root/*
+        else
+            $root
+    let $rels := $base/*[local-name(.) = "Relationship"]
+    return
+        element { QName($pmf:NS_PKG_RELS, "Relationships") } {
+            for $r in $rels
+            return
+                pmf:opc-rel(
+                    string($r/@Id),
+                    string($r/@Type),
+                    string($r/@Target),
+                    if ($r/@TargetMode) then
+                        string($r/@TargetMode)
+                    else
+                        ()
+                )
+        }
+};
+
+(: Section properties from a real Word template may reference headers/footers via r:id; we replace
+   word/_rels/document.xml.rels and do not ship header/footer parts — drop those references. :)
+declare %private function pmf:sect-pr-for-output($sectPr as element(w:sectPr)?) as element(w:sectPr)? {
+    if (empty($sectPr)) then
+        ()
+    else
+        let $out :=
+            element { node-name($sectPr) } {
+                $sectPr/@*,
+                for $c in $sectPr/*
+                return
+                    typeswitch ($c)
+                        case element(w:headerReference) return ()
+                        case element(w:footerReference) return ()
+                        default return $c
+            }
+        return
+            if (exists($out/w:pgSz)) then
+                $out
+            else
+                pmf:default-sect-pr()
+};
+
+(: Package root: canonical template rels + thumbnail row when missing. :)
+declare %private function pmf:root-rels-for-package($config as map(*)) as element() {
+    let $core := pmf:canonical-opc-rels(pmf:load-template-xml($config, "_rels/.rels"))
+    let $rels := $core/*[string(./@Type) = $pmf:ROOT_REL_TYPES_ALLOWED]
+    let $has-thumb := exists($rels[string(@Type) = $pmf:THUMB_REL_TYPE])
+    let $next-rid :=
+        if ($has-thumb) then
+            ()
+        else
+            let $nums :=
+                for $r in $rels
+                let $id := replace(string($r/@Id), "^rId", "", "i")
+                where $id castable as xs:integer
+                return xs:integer($id)
+            return
+                max(($nums, 0)) + 1
+    let $thumb :=
+        if ($has-thumb) then
+            ()
+        else
+            pmf:opc-rel("rId" || $next-rid, $pmf:THUMB_REL_TYPE, "docProps/thumbnail.jpeg", ())
+    return
+        element { QName($pmf:NS_PKG_RELS, "Relationships") } {
+            $rels,
+            $thumb
         }
 };
 
@@ -751,7 +972,7 @@ declare %private function pmf:assemble-package(
     $image-items    as map(*)*,
     $list-nums      as element(docx:list-instance)*
 ) as element(pkg:package) {
-    let $sectPr        := pmf:load-template-xml("word/document.xml")//w:sectPr
+    let $sectPr        := pmf:sect-pr-for-output(pmf:load-template-xml($config, "word/document.xml")//w:sectPr)
     let $doc-xml       := pmf:make-document-xml($body-nodes, $sectPr)
     let $doc-rels      := pmf:make-document-rels($links, $has-footnotes, $image-items)
     let $content-types := pmf:make-content-types($has-footnotes, $image-items)
@@ -762,7 +983,7 @@ declare %private function pmf:assemble-package(
             </pkg:part>
             <pkg:part pkg:name="/_rels/.rels"
                 pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("_rels/.rels")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:root-rels-for-package($config) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/document.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">
@@ -789,73 +1010,71 @@ declare %private function pmf:assemble-package(
                     <pkg:part pkg:name="/word/_rels/footnotes.xml.rels"
                         pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
                         <pkg:xmlData>
-                            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>
+                            { element { QName($pmf:NS_PKG_RELS, "Relationships") } { } }
                         </pkg:xmlData>
                     </pkg:part>
                 ) else ()
             }
             <pkg:part pkg:name="/word/styles.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/styles.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/styles.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/stylesWithEffects.xml"
                 pkg:contentType="application/vnd.ms-word.stylesWithEffects+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/stylesWithEffects.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/stylesWithEffects.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/numbering.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml">
-                <pkg:xmlData>{ pmf:make-numbering-xml($list-nums) }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:make-numbering-xml($config, $list-nums) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/settings.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/settings.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/settings.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/webSettings.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/webSettings.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/webSettings.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/fontTable.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/fontTable.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/fontTable.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/theme/theme1.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.theme+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("word/theme/theme1.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/theme/theme1.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/docProps/core.xml"
                 pkg:contentType="application/vnd.openxmlformats-package.core-properties+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("docProps/core.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "docProps/core.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/docProps/app.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.extended-properties+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("docProps/app.xml")/element() }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "docProps/app.xml")/element()) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/docProps/thumbnail.jpeg"
                 pkg:contentType="image/jpeg" pkg:compression="store">
-                <pkg:binaryData>{ repo:get-resource($pmf:LIB_URI, "resources/docx/docProps/thumbnail.jpeg") }</pkg:binaryData>
-            </pkg:part>
-            <pkg:part pkg:name="/customXml/item1.xml"
-                pkg:contentType="application/xml">
-                <pkg:xmlData>{ pmf:load-template-xml("customXml/item1.xml")/element() }</pkg:xmlData>
-            </pkg:part>
-            <pkg:part pkg:name="/customXml/itemProps1.xml"
-                pkg:contentType="application/vnd.openxmlformats-officedocument.customXmlProperties+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("customXml/itemProps1.xml")/element() }</pkg:xmlData>
-            </pkg:part>
-            <pkg:part pkg:name="/customXml/_rels/item1.xml.rels"
-                pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
-                <pkg:xmlData>{ pmf:load-template-xml("customXml/_rels/item1.xml.rels")/element() }</pkg:xmlData>
+                <pkg:binaryData>{ pmf:load-template-binary($config, "docProps/thumbnail.jpeg") }</pkg:binaryData>
             </pkg:part>
         </pkg:package>
 };
 
-declare %private function pmf:make-document-xml($body-nodes as node()*, $sectPr as element()) {
+declare %private function pmf:default-sect-pr() as element(w:sectPr) {
+    <w:sectPr>
+        <w:pgSz w:w="12240" w:h="15840"/>
+        <w:pgMar w:top="1440" w:right="1800" w:bottom="1440" w:left="1800" w:header="720" w:footer="720"
+            w:gutter="0"/>
+        <w:cols w:space="720"/>
+        <w:docGrid w:linePitch="360"/>
+    </w:sectPr>
+};
+
+declare %private function pmf:make-document-xml($body-nodes as node()*, $sectPr as element(w:sectPr)?) {
     <w:document
         xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
         xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         <w:body>
             { $body-nodes }
-            { $sectPr }
+            { head(($sectPr, pmf:default-sect-pr())) }
         </w:body>
     </w:document>
 };
@@ -864,33 +1083,30 @@ declare %private function pmf:make-document-rels(
     $links         as element(docx:hyperlink)*,
     $has-footnotes as xs:boolean,
     $image-items   as map(*)*
-) as element(rel:Relationships) {
-    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml"   Target="../customXml/item1.xml"/>
-        <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering"   Target="numbering.xml"/>
-        <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"      Target="styles.xml"/>
-        <Relationship Id="rId4" Type="http://schemas.microsoft.com/office/2007/relationships/stylesWithEffects"        Target="stylesWithEffects.xml"/>
-        <Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings"    Target="settings.xml"/>
-        <Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings" Target="webSettings.xml"/>
-        <Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable"   Target="fontTable.xml"/>
-        <Relationship Id="rId8" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"       Target="theme/theme1.xml"/>
-        {
-            if ($has-footnotes) then
-                <Relationship Id="rId9" Type="{$pmf:FN_REL_TYPE}" Target="footnotes.xml"/>
-            else ()
-        }
-        {
-            for $im in $image-items
-            return
-                <Relationship Id="{$im?rId}" Type="{$pmf:IMG_REL_TYPE}" Target="{$im?target}"/>
-        }
-        {
-            for $link in $links
-            return
-                <Relationship Id="{$link/@rId}" Type="{$pmf:HL_REL_TYPE}"
-                    Target="{$link/@href}" TargetMode="External"/>
-        }
-    </Relationships>
+) as element() {
+    element { QName($pmf:NS_PKG_RELS, "Relationships") } {
+        (: No customXml parts: template/bibliography custom XML is a frequent source of Word
+           “unreadable content” when merged with generated body; TEI → DOCX does not need it. :)
+        pmf:opc-rel("rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering", "numbering.xml", ()),
+        pmf:opc-rel("rId3", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles", "styles.xml", ()),
+        pmf:opc-rel("rId4", "http://schemas.microsoft.com/office/2007/relationships/stylesWithEffects", "stylesWithEffects.xml", ()),
+        pmf:opc-rel("rId5", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings", "settings.xml", ()),
+        pmf:opc-rel("rId6", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings", "webSettings.xml", ()),
+        pmf:opc-rel("rId7", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable", "fontTable.xml", ()),
+        pmf:opc-rel("rId8", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", "theme/theme1.xml", ()),
+        if ($has-footnotes) then
+            pmf:opc-rel("rId9", $pmf:FN_REL_TYPE, "footnotes.xml", ())
+        else
+            (),
+        for $im in $image-items
+        return
+            pmf:opc-rel(string($im?rId), $pmf:IMG_REL_TYPE, string($im?target), ()),
+        for $link in $links
+        let $href := normalize-space(string($link/@href))
+        where $href != ""
+        return
+            pmf:opc-rel(string($link/@rId), $pmf:HL_REL_TYPE, $href, "External")
+    }
 };
 
 declare %private function pmf:make-content-types($has-footnotes as xs:boolean, $image-items as map(*)*) as element() {
@@ -914,7 +1130,6 @@ declare %private function pmf:make-content-types($has-footnotes as xs:boolean, $
             return
                 <Override PartName="{$im?part-name}" ContentType="{$im?content-type}"/>
         }
-        <Override PartName="/customXml/itemProps1.xml"  ContentType="application/vnd.openxmlformats-officedocument.customXmlProperties+xml"/>
         <Override PartName="/word/numbering.xml"        ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
         <Override PartName="/word/styles.xml"           ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
         <Override PartName="/word/stylesWithEffects.xml" ContentType="application/vnd.ms-word.stylesWithEffects+xml"/>
@@ -924,6 +1139,7 @@ declare %private function pmf:make-content-types($has-footnotes as xs:boolean, $
         <Override PartName="/word/theme/theme1.xml"     ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
         <Override PartName="/docProps/core.xml"         ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
         <Override PartName="/docProps/app.xml"          ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+        <Override PartName="/docProps/thumbnail.jpeg"   ContentType="image/jpeg"/>
     </Types>
 };
 
@@ -1140,38 +1356,60 @@ declare %private function pmf:footnote-text-style($config as map(*)) as xs:strin
 
 declare %private function pmf:resolve-heading-style($config as map(*), $lvl as xs:integer) as xs:string {
     let $want := "Heading" || $lvl
+    let $by-name :=
+        if (map:contains($config, "docx-para-style-id-by-name")) then
+            $config?docx-para-style-id-by-name?("heading " || $lvl)
+        else
+            ()
     return
         if (pmf:has-para-style($config, $want)) then
             $want
-        else if (pmf:has-para-style($config, "Normal")) then
-            "Normal"
+        else if (exists($by-name)) then
+            $by-name
         else
-            head(($config?docx-para-style-ids, "Normal"))
+            head((
+                $config?docx-para-style-id-by-name?("normal"),
+                if (pmf:has-para-style($config, "Normal")) then "Normal" else (),
+                head($config?docx-para-style-ids),
+                "Normal"
+            ))
 };
 
 declare %private function pmf:resolve-table-style($config as map(*)) as xs:string? {
-    if (pmf:has-table-style($config, "TableGrid")) then
-        "TableGrid"
-    else if (map:contains($config, "docx-table-style-ids") and exists($config?docx-table-style-ids)) then
-        head($config?docx-table-style-ids)
-    else
-        ()
+    let $by-name := $config?docx-table-style-id-by-name
+    return
+        if (pmf:has-table-style($config, "TableGrid")) then
+            "TableGrid"
+        else if (map:contains($config, "docx-table-style-id-by-name") and map:contains($by-name, "table grid")) then
+            $by-name?("table grid")
+        else if (map:contains($config, "docx-table-style-ids") and exists($config?docx-table-style-ids)) then
+            head($config?docx-table-style-ids)
+        else
+            ()
 };
 
 declare %private function pmf:resolve-para-style($config as map(*), $class as xs:string+) as xs:string {
     let $user := pmf:user-style-classes($class)
+    let $by-name := $config?docx-para-style-id-by-name
     let $hit := head((
         for $c in $user
-        where normalize-space($c) != "" and pmf:has-para-style($config, $c)
-        return string($c)
+        where normalize-space($c) != ""
+        return
+            if (pmf:has-para-style($config, $c)) then
+                string($c)
+            else if (map:contains($config, "docx-para-style-id-by-name") and map:contains($by-name, lower-case($c))) then
+                $by-name?(lower-case($c))
+            else
+                ()
+    ))
+    let $normal := head((
+        $by-name?("normal"),
+        if (pmf:has-para-style($config, "Normal")) then "Normal" else (),
+        head($config?docx-para-style-ids),
+        "Normal"
     ))
     return
-        if (exists($hit)) then
-            $hit
-        else if (pmf:has-para-style($config, "Normal")) then
-            "Normal"
-        else
-            head(($config?docx-para-style-ids, "Normal"))
+        if (exists($hit)) then $hit else $normal
 };
 
 declare %private function pmf:resolve-char-style($config as map(*), $class as xs:string+) as xs:string? {
@@ -1261,8 +1499,79 @@ declare %private function pmf:make-t($text as xs:string) as element(w:t) {
    Private: template loading
    ============================================================ :)
 
-declare %private function pmf:load-template-xml($path as xs:string) as document-node() {
-    let $bin := repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path)
+declare %private function pmf:template-collection($config as map(*)) as xs:string? {
+    let $raw := head(($config?docx-template-collection, $config?parameters?docx-template-collection))
+    let $norm := normalize-space(string($raw))
     return
-        parse-xml(util:binary-to-string($bin, "UTF-8"))
+        if ($norm = "") then
+            ()
+        else
+            replace($norm, "/+$", "")
+};
+
+declare %private function pmf:template-db-path($config as map(*), $path as xs:string) as xs:string? {
+    let $col := pmf:template-collection($config)
+    return
+        if (empty($col)) then
+            ()
+        else
+            $col || "/" || $path
+};
+
+declare %private function pmf:load-template-binary($config as map(*), $path as xs:string) as xs:base64Binary {
+    let $db-path := pmf:template-db-path($config, $path)
+    let $db-bin :=
+        if (exists($db-path)) then
+            try {
+                util:binary-doc($db-path)
+            } catch * {
+                ()
+            }
+        else
+            ()
+    return
+        if (exists($db-bin)) then
+            $db-bin
+        else
+            repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path)
+};
+
+declare %private function pmf:load-template-xml($config as map(*), $path as xs:string) as document-node() {
+    let $db-path := pmf:template-db-path($config, $path)
+    let $db-doc :=
+        if (exists($db-path)) then
+            try {
+                doc($db-path)
+            } catch * {
+                ()
+            }
+        else
+            ()
+    let $db-bin :=
+        if (empty($db-doc) and exists($db-path)) then
+            try {
+                util:binary-doc($db-path)
+            } catch * {
+                ()
+            }
+        else
+            ()
+    let $_ :=
+        if (exists($db-path) and empty($db-doc) and empty($db-bin)) then
+            util:log(
+                "WARN",
+                (
+                    "Template path not available in configured collection; falling back to repo resource: ",
+                    $db-path
+                )
+            )
+        else
+            ()
+    return
+        if ($db-doc instance of document-node()) then
+            $db-doc
+        else if (exists($db-bin)) then
+            parse-xml(util:binary-to-string($db-bin, "UTF-8"))
+        else
+            parse-xml(util:binary-to-string(repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path), "UTF-8"))
 };
