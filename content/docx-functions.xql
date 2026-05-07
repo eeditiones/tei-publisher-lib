@@ -28,6 +28,7 @@ declare namespace tei="http://www.tei-c.org/ns/1.0";
 declare namespace docx="http://existsolutions.com/ns/docx";
 
 import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counters";
+import module namespace css="http://www.tei-c.org/tei-simple/xquery/css";
 import module namespace http="http://expath.org/ns/http-client" at "java:org.exist.xquery.modules.httpclient.HTTPClientModule";
 import module namespace compression="http://exist-db.org/xquery/compression" at "java:org.exist.xquery.modules.compression.CompressionModule";
 
@@ -70,10 +71,17 @@ declare variable $pmf:ROOT_REL_TYPES_ALLOWED := (
 declare function pmf:init($config as map(*), $node as node()*) {
     let $styles-doc := pmf:load-template-xml($config, "word/styles.xml")
     let $styles := $styles-doc//w:style
+    let $odd-doc := if ($config?odd) then doc($config?odd) else ()
+    let $odd-css := if (exists($odd-doc)) then css:generate-css($odd-doc, "docx", $config?odd) else ""
+    let $odd-styles := if ($odd-css != "") then css:parse-css($odd-css) else map {}
+    let $rendition-css := string-join(css:rendition-styles-html($config, $node))
+    let $rendition-styles := if ($rendition-css != "") then css:parse-css($rendition-css) else map {}
+    let $all-styles := map:merge(($odd-styles, $rendition-styles), map { "duplicates": "use-last" })
     return
         map:merge((
             $config,
             map {
+                "rendition-styles": $all-styles,
                 "docx-para-style-ids": distinct-values(
                     for $id in $styles[@w:type = "paragraph"]/@w:styleId
                     return string($id)[normalize-space(.) != ""]
@@ -383,35 +391,41 @@ declare function pmf:graphic($config as map(*), $node as node(), $class as xs:st
             title="{$title-str}"/>
 };
 
-declare function pmf:weblink($config as map(*), $node as node(), $class as xs:string+, $content,
-    $url, $target, $optional) {
-    let $href := normalize-space(string($url))
+declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $uri, $target, $optional as map(*)) {
+    let $raw := normalize-space(string($uri))
     return
-        if ($href = "") then
-            $config?apply-children($config, $node, $content)
+        if ($raw = "") then
+            pmf:apply-runs($config, $node, $class, $content)
+        else if (starts-with($raw, "#")) then
+            let $anchor := normalize-space(substring($raw, 2))
+            return
+                if ($anchor = "") then
+                    pmf:apply-runs($config, $node, $class, $content)
+                else
+                    <w:hyperlink w:anchor="{$anchor}">
+                        { pmf:link-runs($config, $node, $class, $content) }
+                    </w:hyperlink>
         else
             let $rId := "rLnk" || counters:increment($pmf:LINK_COUNTER)
             return
-                <docx:hyperlink href="{$href}" rId="{$rId}">
-                    { $config?apply-children($config, $node, $content) }
+                <docx:hyperlink href="{$raw}" rId="{$rId}">
+                    { pmf:link-runs($config, $node, $class, $content) }
                 </docx:hyperlink>
 };
 
-declare function pmf:link($config as map(*), $node as node(), $class as xs:string+, $content, $url) {
-    (: w:hyperlink must have a non-empty w:anchor or r:id; empty anchors break Word. Strip leading # for TEI ptr/ref-style values. :)
-    let $raw := normalize-space(string($url))
-    let $anchor :=
-        if (starts-with($raw, "#")) then
-            normalize-space(substring($raw, 2))
-        else
-            $raw
+declare %private function pmf:link-runs($config as map(*), $node as node(), $class as xs:string+, $content) as node()* {
+    for $r in pmf:apply-runs($config, $node, $class, $content)
     return
-        if ($anchor = "") then
-            pmf:apply-runs($config, $node, $class, $content)
+        if ($r instance of element(w:r)) then
+            <w:r>
+                <w:rPr>
+                    <w:rStyle w:val="Hyperlink"/>
+                    { $r/w:rPr/node() }
+                </w:rPr>
+                { $r/node()[not(self::w:rPr)] }
+            </w:r>
         else
-            <w:hyperlink w:anchor="{$anchor}">
-                { pmf:apply-runs($config, $node, $class, $content) }
-            </w:hyperlink>
+            $r
 };
 
 declare function pmf:break($config as map(*), $node as node(), $class as xs:string+, $content,
@@ -466,13 +480,36 @@ declare function pmf:caption($config as map(*), $node as node(), $class as xs:st
 };
 
 declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content, $title) {
-    (
-        $config?apply-children($config, $node, $content),
-        if ($title) then
+    let $items := $config?apply-children($config, $node, $content)
+    let $paras := pmf:block-children($config, $node, $class, $items)
+    let $has-caption := exists($title) and normalize-space(string-join($title, "")) != ""
+    return (
+        if ($has-caption) then
+            for $p in $paras
+            return
+                if ($p instance of element(w:p)) then pmf:p-add-keep-next($p) else $p
+        else
+            $paras,
+        if ($has-caption) then
             pmf:caption($config, $node, ("tei-caption"), $title)
         else
             ()
     )
+};
+
+declare %private function pmf:p-add-keep-next($p as element(w:p)) as element(w:p) {
+    <w:p>
+        {
+            if ($p/w:pPr) then
+                <w:pPr>
+                    { $p/w:pPr/@*, $p/w:pPr/node() }
+                    { if (not($p/w:pPr/w:keepNext)) then <w:keepNext/> else () }
+                </w:pPr>
+            else
+                <w:pPr><w:keepNext/></w:pPr>
+        }
+        { $p/node()[not(self::w:pPr)] }
+    </w:p>
 };
 
 declare function pmf:metadata($config as map(*), $node as node(), $class as xs:string+, $content,
@@ -874,6 +911,30 @@ declare %private function pmf:strip-mc-ignorable($el as element()) as element() 
     }
 };
 
+declare %private function pmf:ensure-builtin-char-styles($styles-root as element()) as element() {
+    let $need-hyperlink := empty($styles-root/w:style[@w:styleId = "Hyperlink"])
+    return
+        if (not($need-hyperlink)) then
+            $styles-root
+        else
+            element { node-name($styles-root) } {
+                $styles-root/@*,
+                $styles-root/node(),
+                if ($need-hyperlink) then
+                    <w:style w:type="character" w:styleId="Hyperlink">
+                        <w:name w:val="Hyperlink"/>
+                        <w:basedOn w:val="DefaultParagraphFont"/>
+                        <w:uiPriority w:val="99"/>
+                        <w:unhideWhenUsed/>
+                        <w:rPr>
+                            <w:color w:val="0563C1" w:themeColor="hyperlink"/>
+                            <w:u w:val="single"/>
+                        </w:rPr>
+                    </w:style>
+                else ()
+            }
+};
+
 (: One OPC Relationship row with stable namespace (avoids eXist xmlns="" on children). :)
 declare %private function pmf:opc-rel(
     $id as xs:string,
@@ -1021,7 +1082,7 @@ declare %private function pmf:assemble-package(
             }
             <pkg:part pkg:name="/word/styles.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml">
-                <pkg:xmlData>{ pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/styles.xml")/element()) }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:ensure-builtin-char-styles(pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/styles.xml")/element())) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/stylesWithEffects.xml"
                 pkg:contentType="application/vnd.ms-word.stylesWithEffects+xml">
@@ -1435,23 +1496,21 @@ declare %private function pmf:run-props($config as map(*), $class as xs:string+)
     let $css-map :=
         if (map:contains($config, "rendition-styles")) then $config?rendition-styles
         else map {}
-    let $css := string-join(for $c in $class return ($css-map?($c), ""))
+    let $props := map:merge(
+        for $c in $class
+        let $m := $css-map?($c)
+        where $m instance of map(*)
+        return $m,
+        map { "duplicates": "use-last" }
+    )
     return (
         $r-style,
-        if (contains($css, "font-weight") and contains($css, "bold")) then <w:b/>         else (),
-        if (contains($css, "font-style")  and contains($css, "italic")) then <w:i/>       else (),
-        if (contains($css, "text-decoration") and contains($css, "underline")) then
-            <w:u w:val="single"/>
-        else (),
-        if (contains($css, "text-decoration") and contains($css, "line-through")) then
-            <w:strike/>
-        else (),
-        if (contains($css, "vertical-align") and contains($css, "super")) then
-            <w:vertAlign w:val="superscript"/>
-        else (),
-        if (contains($css, "vertical-align") and contains($css, "sub")) then
-            <w:vertAlign w:val="subscript"/>
-        else ()
+        if ($props?("font-weight") = "bold")                  then <w:b/>              else (),
+        if ($props?("font-style")  = "italic")                then <w:i/>              else (),
+        if ($props?("text-decoration") = "underline")         then <w:u w:val="single"/> else (),
+        if ($props?("text-decoration") = "line-through")      then <w:strike/>         else (),
+        if ($props?("vertical-align") = "super")              then <w:vertAlign w:val="superscript"/> else (),
+        if ($props?("vertical-align") = "sub")                then <w:vertAlign w:val="subscript"/>   else ()
     )
 };
 
@@ -1509,16 +1568,16 @@ declare %private function pmf:template-docx-path($config as map(*)) as xs:string
     return if ($norm = "") then () else $norm
 };
 
-declare %private function pmf:extract-from-docx($docx-path as xs:string, $entry-path as xs:string) as xs:base64Binary? {
+declare %private function pmf:extract-from-docx($docx-path as xs:string, $entry-path as xs:string) as item()? {
     let $zip := util:binary-doc($docx-path)
     return
         if (empty($zip)) then ()
         else
-            head(
+            let $result := head(
                 compression:unzip(
                     $zip,
                     function($p as xs:anyURI, $type as xs:string, $param as item()*) as xs:boolean {
-                        string($p) = $entry-path
+                        string($p) = $entry-path or string($p) = "./" || $entry-path
                     },
                     (),
                     function($p as xs:anyURI, $type as xs:string, $data as item()?, $param as item()*) as item()* {
@@ -1527,6 +1586,8 @@ declare %private function pmf:extract-from-docx($docx-path as xs:string, $entry-
                     ()
                 )
             )
+            return
+                if (exists($result)) then $result else ()
 };
 
 declare %private function pmf:load-template-binary($config as map(*), $path as xs:string) as xs:base64Binary {
@@ -1537,7 +1598,7 @@ declare %private function pmf:load-template-binary($config as map(*), $path as x
         else
             ()
     return
-        if (exists($from-docx)) then
+        if ($from-docx instance of xs:base64Binary) then
             $from-docx
         else
             repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path)
@@ -1552,7 +1613,12 @@ declare %private function pmf:load-template-xml($config as map(*), $path as xs:s
             ()
     return
         if (exists($from-docx)) then
-            parse-xml(util:binary-to-string($from-docx, "UTF-8"))
+            if ($from-docx instance of document-node()) then
+                $from-docx
+            else if ($from-docx instance of xs:base64Binary) then
+                parse-xml(util:binary-to-string($from-docx, "UTF-8"))
+            else
+                parse-xml(string($from-docx))
         else
             parse-xml(util:binary-to-string(repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path), "UTF-8"))
 };
