@@ -29,6 +29,7 @@ declare namespace docx="http://existsolutions.com/ns/docx";
 
 import module namespace counters="http://www.tei-c.org/tei-simple/xquery/counters";
 import module namespace http="http://expath.org/ns/http-client" at "java:org.exist.xquery.modules.httpclient.HTTPClientModule";
+import module namespace compression="http://exist-db.org/xquery/compression" at "java:org.exist.xquery.modules.compression.CompressionModule";
 
 declare variable $pmf:FOOTNOTE_COUNTER := "docx-fn-" || util:uuid();
 declare variable $pmf:LINK_COUNTER    := "docx-lnk-" || util:uuid();
@@ -352,14 +353,17 @@ declare function pmf:row($config as map(*), $node as node(), $class as xs:string
 
 declare function pmf:cell($config as map(*), $node as node(), $class as xs:string+, $content,
     $type, $col, $row) {
-    <w:tc>
-        {
-            if ($node/@cols castable as xs:integer and xs:integer($node/@cols) > 1) then
-                <w:tcPr><w:gridSpan w:val="{$node/@cols}"/></w:tcPr>
-            else ()
-        }
-        { pmf:apply-runs($config, $node, $class, $content) }
-    </w:tc>
+    let $items := $config?apply-children($config, $node, $content)
+    let $body  := pmf:block-children($config, $node, $class, $items)
+    return
+        <w:tc>
+            {
+                if ($node/@cols castable as xs:integer and xs:integer($node/@cols) > 1) then
+                    <w:tcPr><w:gridSpan w:val="{$node/@cols}"/></w:tcPr>
+                else ()
+            }
+            { if (empty($body)) then <w:p/> else $body }
+        </w:tc>
 };
 
 declare function pmf:graphic($config as map(*), $node as node(), $class as xs:string+, $content,
@@ -1499,79 +1503,56 @@ declare %private function pmf:make-t($text as xs:string) as element(w:t) {
    Private: template loading
    ============================================================ :)
 
-declare %private function pmf:template-collection($config as map(*)) as xs:string? {
-    let $raw := head(($config?docx-template-collection, $config?parameters?docx-template-collection))
+declare %private function pmf:template-docx-path($config as map(*)) as xs:string? {
+    let $raw := head(($config?docx-template, $config?parameters?docx-template))
     let $norm := normalize-space(string($raw))
-    return
-        if ($norm = "") then
-            ()
-        else
-            replace($norm, "/+$", "")
+    return if ($norm = "") then () else $norm
 };
 
-declare %private function pmf:template-db-path($config as map(*), $path as xs:string) as xs:string? {
-    let $col := pmf:template-collection($config)
+declare %private function pmf:extract-from-docx($docx-path as xs:string, $entry-path as xs:string) as xs:base64Binary? {
+    let $zip := util:binary-doc($docx-path)
     return
-        if (empty($col)) then
-            ()
+        if (empty($zip)) then ()
         else
-            $col || "/" || $path
+            head(
+                compression:unzip(
+                    $zip,
+                    function($p as xs:anyURI, $type as xs:string, $param as item()*) as xs:boolean {
+                        string($p) = $entry-path
+                    },
+                    (),
+                    function($p as xs:anyURI, $type as xs:string, $data as item()?, $param as item()*) as item()* {
+                        $data
+                    },
+                    ()
+                )
+            )
 };
 
 declare %private function pmf:load-template-binary($config as map(*), $path as xs:string) as xs:base64Binary {
-    let $db-path := pmf:template-db-path($config, $path)
-    let $db-bin :=
-        if (exists($db-path)) then
-            try {
-                util:binary-doc($db-path)
-            } catch * {
-                ()
-            }
+    let $docx-path := pmf:template-docx-path($config)
+    let $from-docx :=
+        if (exists($docx-path)) then
+            pmf:extract-from-docx($docx-path, $path)
         else
             ()
     return
-        if (exists($db-bin)) then
-            $db-bin
+        if (exists($from-docx)) then
+            $from-docx
         else
             repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path)
 };
 
 declare %private function pmf:load-template-xml($config as map(*), $path as xs:string) as document-node() {
-    let $db-path := pmf:template-db-path($config, $path)
-    let $db-doc :=
-        if (exists($db-path)) then
-            try {
-                doc($db-path)
-            } catch * {
-                ()
-            }
-        else
-            ()
-    let $db-bin :=
-        if (empty($db-doc) and exists($db-path)) then
-            try {
-                util:binary-doc($db-path)
-            } catch * {
-                ()
-            }
-        else
-            ()
-    let $_ :=
-        if (exists($db-path) and empty($db-doc) and empty($db-bin)) then
-            util:log(
-                "WARN",
-                (
-                    "Template path not available in configured collection; falling back to repo resource: ",
-                    $db-path
-                )
-            )
+    let $docx-path := pmf:template-docx-path($config)
+    let $from-docx :=
+        if (exists($docx-path)) then
+            pmf:extract-from-docx($docx-path, $path)
         else
             ()
     return
-        if ($db-doc instance of document-node()) then
-            $db-doc
-        else if (exists($db-bin)) then
-            parse-xml(util:binary-to-string($db-bin, "UTF-8"))
+        if (exists($from-docx)) then
+            parse-xml(util:binary-to-string($from-docx, "UTF-8"))
         else
             parse-xml(util:binary-to-string(repo:get-resource($pmf:LIB_URI, "resources/docx/" || $path), "UTF-8"))
 };
