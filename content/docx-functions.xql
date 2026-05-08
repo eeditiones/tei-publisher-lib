@@ -79,7 +79,6 @@ declare function pmf:init($config as map(*), $node as node()*) {
             $config,
             map {
                 "styles": $odd-styles,
-                "rendition-styles": $odd-styles,
                 "docx-para-style-ids": distinct-values((
                     for $id in $styles[@w:type = "paragraph"]/@w:styleId
                     return string($id)[normalize-space(.) != ""],
@@ -347,34 +346,60 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:list($config as map(*), $node as node(), $class as xs:string+, $content, $type) {
+    let $listType := ($type, $node/@type)[1]
     let $abstract :=
-        if ($type = "ordered") then
+        if ($listType = "ordered") then
             $pmf:ORDERED_LIST_ABSTRACT
         else
             $pmf:BULLET_LIST_ABSTRACT
-    let $seq := counters:increment($pmf:LIST_NUM_COUNTER)
-    let $numId := xs:integer($pmf:LIST_NUM_MIN) + $seq - 1
+    let $nested := exists($config?list-num-id)
+    let $reuse-parent := $nested and $config?list-abstract-id = $abstract
+    let $numId :=
+        if ($reuse-parent) then
+            $config?list-num-id
+        else
+            let $seq := counters:increment($pmf:LIST_NUM_COUNTER)
+            return string(xs:integer($pmf:LIST_NUM_MIN) + $seq - 1)
     let $config := map:merge(($config, map {
         "list-num-id": string($numId),
+        "list-abstract-id": $abstract,
         "list-level": (($config?list-level, 0)[1] + 1)
     }), map { "duplicates": "use-last" })
     return
-        (
-            <docx:list-instance numId="{string($numId)}" abstractNumId="{$abstract}"/>,
+        if ($reuse-parent) then
             $config?apply-children($config, $node, $content)
-        )
+        else
+            (
+                <docx:list-instance numId="{string($numId)}" abstractNumId="{$abstract}"/>,
+                $config?apply-children($config, $node, $content)
+            )
 };
 
 declare function pmf:listItem($config as map(*), $node as node(), $class as xs:string+, $content, $n) {
-    <w:p>
-        <w:pPr>
-            <w:numPr>
-                <w:ilvl w:val="{max((($config?list-level, 1)[1] - 1, 0))}"/>
-                <w:numId w:val="{($config?list-num-id, $pmf:BULLET_NUM_ID)[1]}"/>
-            </w:numPr>
-        </w:pPr>
-        { pmf:apply-runs($config, $node, $class, $content) }
-    </w:p>
+    let $numPr :=
+        <w:numPr>
+            <w:ilvl w:val="{max((($config?list-level, 1)[1] - 1, 0))}"/>
+            <w:numId w:val="{($config?list-num-id, $pmf:BULLET_NUM_ID)[1]}"/>
+        </w:numPr>
+    let $items := $config?apply-children($config, $node, $content)
+    let $blocks := pmf:block-children($config, $node, $class, $items)
+    let $first-p := head($blocks[self::w:p])
+    return
+        if (exists($first-p)) then
+            for $b in $blocks
+            return
+                if ($b is $first-p) then
+                    <w:p>
+                        <w:pPr>{ $numPr, $b/w:pPr/* }</w:pPr>
+                        { $b/* except $b/w:pPr }
+                    </w:p>
+                else
+                    $b
+        else
+            <w:p>
+                <w:pPr>{ $numPr }</w:pPr>
+                { pmf:apply-runs($config, $node, $class, $content) }
+            </w:p>
 };
 
 declare function pmf:table($config as map(*), $node as node(), $class as xs:string+, $content) {
@@ -467,7 +492,7 @@ declare %private function pmf:link-runs($config as map(*), $node as node(), $cla
 declare function pmf:break($config as map(*), $node as node(), $class as xs:string+, $content,
     $type, $label) {
     if ($type = "page") then
-        <w:p><w:pPr><w:pageBreakBefore/></w:pPr></w:p>
+        <w:r><w:br w:type="page"/></w:r>
     else
         <w:r><w:br/></w:r>
 };
@@ -492,6 +517,14 @@ declare function pmf:skip($config as map(*), $node as node(), $class as xs:strin
 };
 
 declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
+    pmf:apply-runs($config, $node, $class, $content)
+};
+
+declare function pmf:section($config as map(*), $node as node(), $class as xs:string+, $content) {
+    pmf:apply-runs($config, $node, $class, $content)
+};
+
+declare function pmf:body($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:apply-runs($config, $node, $class, $content)
 };
 
@@ -886,43 +919,51 @@ declare %private function pmf:flatten-paragraph($config as map(*), $p as element
 declare %private function pmf:fallback-abstract-num-ordered() as element(w:abstractNum) {
     <w:abstractNum w:abstractNumId="{$pmf:ORDERED_LIST_ABSTRACT}">
         <w:nsid w:val="FFFFFF90"/>
-        <w:multiLevelType w:val="singleLevel"/>
+        <w:multiLevelType w:val="multilevel"/>
         <w:tmpl w:val="E1A62B41"/>
-        <w:lvl w:ilvl="0">
-            <w:start w:val="1"/>
-            <w:numFmt w:val="decimal"/>
-            <w:lvlText w:val="%1."/>
-            <w:lvlJc w:val="left"/>
-            <w:pPr>
-                <w:tabs>
-                    <w:tab w:val="num" w:pos="360"/>
-                </w:tabs>
-                <w:ind w:left="360" w:hanging="360"/>
-            </w:pPr>
-        </w:lvl>
+        {
+            for $ilvl in 0 to 8
+            return
+                <w:lvl w:ilvl="{$ilvl}">
+                    <w:start w:val="1"/>
+                    <w:numFmt w:val="decimal"/>
+                    <w:lvlText w:val="%{$ilvl + 1}."/>
+                    <w:lvlJc w:val="left"/>
+                    <w:pPr>
+                        <w:tabs>
+                            <w:tab w:val="num" w:pos="{360 * ($ilvl + 1)}"/>
+                        </w:tabs>
+                        <w:ind w:left="{360 * ($ilvl + 1)}" w:hanging="360"/>
+                    </w:pPr>
+                </w:lvl>
+        }
     </w:abstractNum>
 };
 
 declare %private function pmf:fallback-abstract-num-bullet() as element(w:abstractNum) {
     <w:abstractNum w:abstractNumId="{$pmf:BULLET_LIST_ABSTRACT}">
         <w:nsid w:val="FFFFFF91"/>
-        <w:multiLevelType w:val="singleLevel"/>
+        <w:multiLevelType w:val="multilevel"/>
         <w:tmpl w:val="F29761A6"/>
-        <w:lvl w:ilvl="0">
-            <w:start w:val="1"/>
-            <w:numFmt w:val="bullet"/>
-            <w:lvlText w:val=""/>
-            <w:lvlJc w:val="left"/>
-            <w:pPr>
-                <w:tabs>
-                    <w:tab w:val="num" w:pos="360"/>
-                </w:tabs>
-                <w:ind w:left="360" w:hanging="360"/>
-            </w:pPr>
-            <w:rPr>
-                <w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/>
-            </w:rPr>
-        </w:lvl>
+        {
+            for $ilvl in 0 to 8
+            return
+                <w:lvl w:ilvl="{$ilvl}">
+                    <w:start w:val="1"/>
+                    <w:numFmt w:val="bullet"/>
+                    <w:lvlText w:val=""/>
+                    <w:lvlJc w:val="left"/>
+                    <w:pPr>
+                        <w:tabs>
+                            <w:tab w:val="num" w:pos="{360 * ($ilvl + 1)}"/>
+                        </w:tabs>
+                        <w:ind w:left="{360 * ($ilvl + 1)}" w:hanging="360"/>
+                    </w:pPr>
+                    <w:rPr>
+                        <w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/>
+                    </w:rPr>
+                </w:lvl>
+        }
     </w:abstractNum>
 };
 
@@ -930,17 +971,10 @@ declare %private function pmf:make-numbering-xml($config as map(*), $extra as el
     let $root := pmf:load-template-xml($config, "word/numbering.xml")/*
     let $abstracts := $root/w:abstractNum
     let $nums := $root/w:num
-    let $abstract-ids := $abstracts ! xs:string(@w:abstractNumId)
-    let $inject-abstracts := (
-        if ($pmf:ORDERED_LIST_ABSTRACT = $abstract-ids) then
-            ()
-        else
-            pmf:fallback-abstract-num-ordered(),
-        if ($pmf:BULLET_LIST_ABSTRACT = $abstract-ids) then
-            ()
-        else
-            pmf:fallback-abstract-num-bullet()
-    )
+    let $abstracts-keep :=
+        $abstracts[
+            not(@w:abstractNumId = ($pmf:ORDERED_LIST_ABSTRACT, $pmf:BULLET_LIST_ABSTRACT))
+        ]
     return
         element { node-name($root) } {
             (: Rebuilding the root drops most xmlns:* from the template; mc:Ignorable then names
@@ -948,8 +982,9 @@ declare %private function pmf:make-numbering-xml($config as map(*), $extra as el
             $root/@*[
                 not(namespace-uri(.) = $pmf:NS_MC and local-name(.) = "Ignorable")
             ],
-            $abstracts,
-            $inject-abstracts,
+            $abstracts-keep,
+            pmf:fallback-abstract-num-ordered(),
+            pmf:fallback-abstract-num-bullet(),
             $nums,
             for $x in $extra
             return
@@ -1630,7 +1665,7 @@ declare %private function pmf:run-props($config as map(*), $class as xs:string+)
         else
             ()
     let $css-map :=
-        if (map:contains($config, "rendition-styles")) then $config?rendition-styles
+        if (map:contains($config, "styles")) then $config?styles
         else map {}
     let $props := map:merge(
         for $c in $class

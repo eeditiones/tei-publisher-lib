@@ -15,6 +15,7 @@ import module namespace ttei="http://existsolutions.com/apps/tei-publisher-lib/t
 import module namespace tfo="http://existsolutions.com/apps/tei-publisher-lib/ts-fo" at "ts-fo.xqm";
 import module namespace tu="http://existsolutions.com/apps/tei-publisher-lib/ts-util" at "ts-util.xqm";
 import module namespace tdocx="http://existsolutions.com/apps/tei-publisher-lib/ts-docx" at "ts-docx.xqm";
+import module namespace tdo="http://existsolutions.com/apps/tei-publisher-lib/ts-docx-output" at "ts-docx-output.xqm";
 import module namespace ted="http://existsolutions.com/apps/tei-publisher-lib/ts-ext-docx" at "ts-ext-docx.xqm";
 import module namespace tep="http://existsolutions.com/apps/tei-publisher-lib/ts-ext-epub" at "ts-ext-epub.xqm";
 import module namespace tpc="http://existsolutions.com/apps/tei-publisher-lib/ts-ext-printcss" at "ts-ext-printcss.xqm";
@@ -31,6 +32,7 @@ test:suite((
   inspect:module-functions(xs:anyURI("ts-fo.xqm")),
   inspect:module-functions(xs:anyURI("ts-util.xqm")),
   inspect:module-functions(xs:anyURI("ts-docx.xqm")),
+  inspect:module-functions(xs:anyURI("ts-docx-output.xqm")),
   inspect:module-functions(xs:anyURI("ts-ext-docx.xqm")),
   inspect:module-functions(xs:anyURI("ts-ext-epub.xqm")),
   inspect:module-functions(xs:anyURI("ts-ext-printcss.xqm")),
