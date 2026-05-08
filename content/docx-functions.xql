@@ -63,6 +63,7 @@ declare variable $pmf:ROOT_REL_TYPES_ALLOWED := (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
     $pmf:THUMB_REL_TYPE
 );
+declare variable $pmf:CAPTION_STYLE_NAME := "caption";
 
 (: ============================================================
    Lifecycle: init / prepare / finish
@@ -494,8 +495,19 @@ declare function pmf:caption($config as map(*), $node as node(), $class as xs:st
 
 declare function pmf:caption($config as map(*), $node as node(), $class as xs:string+, $content,
     $prefix as xs:string?) {
+    let $caption-by-name :=
+        if (map:contains($config, "docx-para-style-id-by-name")) then
+            head((
+                let $id := $config?docx-para-style-id-by-name?($pmf:CAPTION_STYLE_NAME)
+                where exists($id) and normalize-space($id) != ""
+                return $id
+            ))
+        else
+            ()
     let $pstyle :=
-        if (pmf:has-para-style($config, "Caption")) then
+        if (exists($caption-by-name)) then
+            $caption-by-name
+        else if (pmf:has-para-style($config, "Caption")) then
             "Caption"
         else
             pmf:resolve-para-style($config, $class)
@@ -958,7 +970,11 @@ declare %private function pmf:strip-mc-ignorable($el as element()) as element() 
 declare %private function pmf:ensure-builtin-styles($styles-root as element()) as element() {
     let $need-hyperlink  := empty($styles-root/w:style[@w:styleId = "Hyperlink"])
     let $need-figure     := empty($styles-root/w:style[@w:styleId = "Figure"])
-    let $need-caption    := empty($styles-root/w:style[@w:styleId = "Caption"])
+    let $caption-by-name := $styles-root/w:style[
+        @w:type = "paragraph"
+        and lower-case(normalize-space(string(w:name/@w:val))) = $pmf:CAPTION_STYLE_NAME
+    ]
+    let $need-caption    := empty($styles-root/w:style[@w:styleId = "Caption"]) and empty($caption-by-name)
     let $need-fn-text    := empty($styles-root/w:style[@w:styleId = "FootnoteText"])
     let $need-fn-ref     := empty($styles-root/w:style[@w:styleId = "FootnoteReference"])
     return
@@ -1736,6 +1752,31 @@ declare %private function pmf:template-docx-path($config as map(*)) as xs:string
     return if ($norm = "") then () else $norm
 };
 
+declare %private function pmf:assert-template-docx-available($docx-path as xs:string?) as empty-sequence() {
+    if (empty($docx-path)) then
+        ()
+    else if (exists(util:binary-doc($docx-path))) then
+        ()
+    else
+        error(
+            xs:QName("pmf:DOCX_TEMPLATE_NOT_FOUND"),
+            "DOCX template not found or not readable: " || $docx-path
+        )
+};
+
+declare %private function pmf:log-template-load(
+    $docx-path as xs:string?,
+    $entry-path as xs:string,
+    $source as xs:string
+) as empty-sequence() {
+    let $resolved := if (exists($docx-path)) then $docx-path else "(default built-in template)"
+    let $_ := util:log(
+        "INFO",
+        "[docx-output] load template entry '" || $entry-path || "' from " || $source || ": " || $resolved
+    )
+    return ()
+};
+
 declare %private function pmf:extract-from-docx($docx-path as xs:string, $entry-path as xs:string) as item()? {
     let $zip := util:binary-doc($docx-path)
     return
@@ -1760,11 +1801,17 @@ declare %private function pmf:extract-from-docx($docx-path as xs:string, $entry-
 
 declare %private function pmf:load-template-binary($config as map(*), $path as xs:string) as xs:base64Binary {
     let $docx-path := pmf:template-docx-path($config)
+    let $_ := pmf:assert-template-docx-available($docx-path)
     let $from-docx :=
         if (exists($docx-path)) then
             pmf:extract-from-docx($docx-path, $path)
         else
             ()
+    let $_ :=
+        if ($from-docx instance of xs:base64Binary) then
+            pmf:log-template-load($docx-path, $path, "docx-template")
+        else
+            pmf:log-template-load($docx-path, $path, "bundled resource")
     return
         if ($from-docx instance of xs:base64Binary) then
             $from-docx
@@ -1774,11 +1821,17 @@ declare %private function pmf:load-template-binary($config as map(*), $path as x
 
 declare %private function pmf:load-template-xml($config as map(*), $path as xs:string) as document-node() {
     let $docx-path := pmf:template-docx-path($config)
+    let $_ := pmf:assert-template-docx-available($docx-path)
     let $from-docx :=
         if (exists($docx-path)) then
             pmf:extract-from-docx($docx-path, $path)
         else
             ()
+    let $_ :=
+        if (exists($from-docx)) then
+            pmf:log-template-load($docx-path, $path, "docx-template")
+        else
+            pmf:log-template-load($docx-path, $path, "bundled resource")
     return
         if (exists($from-docx)) then
             if ($from-docx instance of document-node()) then
