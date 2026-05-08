@@ -240,7 +240,7 @@ declare function pmu:generate-main($name as xs:string, $uri as xs:string, $xquer
         '}&#10;' ||
         "return m:transform($options, $xml)"
     let $stored :=
-        xmldb:store($output-root, $name || "-" || $mode || "-main.xql", $mainCode, "application/xquery")
+        xmldb:store($output-root, xs:anyURI($name || "-" || $mode || "-main.xql"), $mainCode, "application/xquery")
     let $chmod := sm:chmod(xs:anyURI($stored), "rwxrwxr-x")
     return
         $stored
