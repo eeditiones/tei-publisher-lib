@@ -72,17 +72,14 @@ declare variable $pmf:CAPTION_STYLE_NAME := "caption";
 declare function pmf:init($config as map(*), $node as node()*) {
     let $styles-doc := pmf:load-template-xml($config, "word/styles.xml")
     let $styles := $styles-doc//w:style
-    let $odd-doc := if ($config?odd) then doc($config?odd) else ()
-    let $odd-css := if (exists($odd-doc)) then css:generate-css($odd-doc, "docx", $config?odd) else ""
-    let $odd-styles := if ($odd-css != "") then css:parse-css($odd-css) else map {}
-    let $rendition-css := string-join(css:rendition-styles-html($config, $node))
-    let $rendition-styles := if ($rendition-css != "") then css:parse-css($rendition-css) else map {}
-    let $all-styles := map:merge(($odd-styles, $rendition-styles), map { "duplicates": "use-last" })
+    let $css := pmf:load-styles($config, doc($config?odd)) => string-join()
+    let $odd-styles := css:parse-css($css)
     return
         map:merge((
             $config,
             map {
-                "rendition-styles": $all-styles,
+                "styles": $odd-styles,
+                "rendition-styles": $odd-styles,
                 "docx-para-style-ids": distinct-values((
                     for $id in $styles[@w:type = "paragraph"]/@w:styleId
                     return string($id)[normalize-space(.) != ""],
@@ -113,6 +110,26 @@ declare function pmf:init($config as map(*), $node as node()*) {
                 )
             }
         ), map { "duplicates": "use-last" })
+};
+
+(:~
+ : Recursively load styles from the ODD and inherited ODDs.
+ :
+ : @param config The configuration map.
+ : @param odd The ODD.
+ : @return The styles.
+ :)
+declare %private function pmf:load-styles($config as map(*), $odd as document-node()) {
+    let $css := css:generate-css($odd, "web", $config?odd)
+    return (
+        $css,
+        if ($odd//tei:schemaSpec/@source) then
+            let $parent := replace(document-uri($odd), "/[^/]+$", "") || "/" || $odd//tei:schemaSpec/@source
+            return
+                pmf:load-styles($config, doc($parent))
+        else
+            ()
+    )
 };
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
@@ -276,49 +293,38 @@ declare %private function pmf:block-normalize-run($class as xs:string+, $run as 
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $run-props := pmf:run-props($config, $class)
     let $preserve-text := pmf:preserve-whitespace($class)
+    let $before := pmf:get-before($config, $class, $preserve-text, $run-props)
+    let $after := pmf:get-after($config, $class, $preserve-text, $run-props)
     let $all :=
-        for $child in $config?apply-children($config, $node, $content)
-        return
-            typeswitch($child)
-                case element(w:r) return
-                    <w:r>
-                        <w:rPr>{ $run-props, $child/w:rPr/* }</w:rPr>
-                        { $child/* except $child/w:rPr }
-                    </w:r>
-                case text() return
-                    let $text := pmf:normalize-text(string($child), $preserve-text)
-                    where $text != ''
-                    return
-                        if ($preserve-text) then
-                            pmf:text-to-runs($text, $run-props)
-                        else if (normalize-space($text) != '') then
-                            <w:r>
-                                <w:rPr>{ $run-props }</w:rPr>
-                                { pmf:make-t($text) }
-                            </w:r>
-                        else
-                            <docx:ws/>
-                default return $child
+        (
+            $before,
+            for $child in $config?apply-children($config, $node, $content)
+            return
+                typeswitch($child)
+                    case element(w:r) return
+                        <w:r>
+                            <w:rPr>{ $run-props, $child/w:rPr/* }</w:rPr>
+                            { $child/* except $child/w:rPr }
+                        </w:r>
+                    case text() return
+                        pmf:string-to-runs(
+                            pmf:normalize-text(string($child), $preserve-text),
+                            $preserve-text,
+                            $run-props
+                        )
+                    default return $child,
+            $after
+        )
     return pmf:keep-interior-whitespace($all)
 };
 
 declare function pmf:text($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $preserve := pmf:preserve-whitespace($class)
-    let $str := pmf:normalize-text(string($content), $preserve)
     let $rPr := pmf:run-props($config, $class)
-    where
-        if ($preserve) then $str != ''
-        else $str != '' and normalize-space($str) != ''
-    return
-        if ($preserve) then
-            pmf:text-to-runs($str, $rPr)
-        else if (exists($rPr)) then
-            <w:r>
-                <w:rPr>{ $rPr }</w:rPr>
-                { pmf:make-t($str) }
-            </w:r>
-        else
-            <w:r>{ pmf:make-t($str) }</w:r>
+    let $before := pmf:get-before($config, $class, $preserve, $rPr)
+    let $main := pmf:string-to-runs(pmf:normalize-text(string($content), $preserve), $preserve, $rPr)
+    let $after := pmf:get-after($config, $class, $preserve, $rPr)
+    return pmf:keep-interior-whitespace(($before, $main, $after))
 };
 
 (: Compatibility hook expected by generated transformation modules. :)
@@ -1644,6 +1650,20 @@ declare %private function pmf:run-props($config as map(*), $class as xs:string+)
     )
 };
 
+declare %private function pmf:get-before($config as map(*), $classes as xs:string*, $preserve as xs:boolean, $rPr as node()*) as node()* {
+    for $class in $classes
+    let $before := head(($config?styles?($class || ":before"), $config?styles?($class || "::before")))
+    where exists($before?content)
+    return pmf:string-to-runs(pmf:normalize-text(string($before?content), $preserve), $preserve, $rPr)
+};
+
+declare %private function pmf:get-after($config as map(*), $classes as xs:string*, $preserve as xs:boolean, $rPr as node()*) as node()* {
+    for $class in $classes
+    let $after := head(($config?styles?($class || ":after"), $config?styles?($class || "::after")))
+    where exists($after?content)
+    return pmf:string-to-runs(pmf:normalize-text(string($after?content), $preserve), $preserve, $rPr)
+};
+
 (: ============================================================
    Private: run/text helpers
    ============================================================ :)
@@ -1687,11 +1707,6 @@ declare %private function pmf:preserve-whitespace($class as xs:string*) as xs:bo
     )
 };
 
-(: Kept for ODD compatibility; interior-whitespace preservation is now always on. :)
-declare %private function pmf:normalize-whitespace($class as xs:string*) as xs:boolean {
-    exists(pmf:user-style-classes($class)[. = "Normalize"])
-};
-
 (: Keep whitespace-only placeholder runs that fall between real content, drop leading/trailing.
    This mirrors CSS white-space collapsing for inline elements: inter-element spaces become one space. :)
 declare %private function pmf:keep-interior-whitespace($items as node()*) as node()* {
@@ -1723,6 +1738,23 @@ declare %private function pmf:normalize-text($text as xs:string?, $preserve as x
     else
         let $step1 := replace($text, "[\r\n\t]+", " ")
         return replace($step1, " {2,}", " ")
+};
+
+declare %private function pmf:string-to-runs($text as xs:string?, $preserve as xs:boolean, $rPr as node()*) as node()* {
+    if (empty($text) or $text = "") then
+        ()
+    else if ($preserve) then
+        pmf:text-to-runs($text, $rPr)
+    else if (normalize-space($text) != '') then
+        if (exists($rPr)) then
+            <w:r>
+                <w:rPr>{ $rPr }</w:rPr>
+                { pmf:make-t($text) }
+            </w:r>
+        else
+            <w:r>{ pmf:make-t($text) }</w:r>
+    else
+        <docx:ws/>
 };
 
 declare %private function pmf:make-t($text as xs:string) as element(w:t) {
