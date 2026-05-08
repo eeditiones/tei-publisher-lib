@@ -82,14 +82,16 @@ declare function pmf:init($config as map(*), $node as node()*) {
             $config,
             map {
                 "rendition-styles": $all-styles,
-                "docx-para-style-ids": distinct-values(
+                "docx-para-style-ids": distinct-values((
                     for $id in $styles[@w:type = "paragraph"]/@w:styleId
-                    return string($id)[normalize-space(.) != ""]
-                ),
-                "docx-char-style-ids": distinct-values(
+                    return string($id)[normalize-space(.) != ""],
+                    "Figure", "Caption", "FootnoteText"
+                )),
+                "docx-char-style-ids": distinct-values((
                     for $id in $styles[@w:type = "character"]/@w:styleId
-                    return string($id)[normalize-space(.) != ""]
-                ),
+                    return string($id)[normalize-space(.) != ""],
+                    "Hyperlink", "FootnoteReference"
+                )),
                 "docx-table-style-ids": distinct-values(
                     for $id in $styles[@w:type = "table"]/@w:styleId
                     return string($id)[normalize-space(.) != ""]
@@ -128,7 +130,8 @@ declare function pmf:finish($config as map(*), $input as node()*) {
     let $_ := counters:destroy($pmf:DOC_PR_COUNTER)
     let $_ := counters:destroy($pmf:LIST_NUM_COUNTER)
     let $footnotes := $input//docx:footnote
-    let $links := $input//docx:hyperlink
+    let $body-links := $input//docx:hyperlink[not(ancestor::docx:footnote)]
+    let $fn-links   := $input//docx:footnote//docx:hyperlink
     let $images := $input//docx:image
     let $image-build := pmf:build-image-package($config, $images)
     let $cfg2 := map:merge((
@@ -142,7 +145,8 @@ declare function pmf:finish($config as map(*), $input as node()*) {
             $cfg2,
             $body-nodes,
             $footnotes,
-            $links,
+            $body-links,
+            $fn-links,
             exists($footnotes),
             $image-build?items,
             $list-nums
@@ -243,7 +247,7 @@ declare %private function pmf:block-children($config as map(*), $node as node(),
                             (
                                 <w:p>
                                     <w:pPr><w:pStyle w:val="{pmf:resolve-para-style($config, $class)}"/></w:pPr>
-                                    { $run }
+                                    { pmf:block-normalize-run($class, $run) }
                                 </w:p>,
                                 pmf:block-children($config, $node, $class, $rest)
                             )
@@ -251,38 +255,63 @@ declare %private function pmf:block-children($config as map(*), $node as node(),
                             pmf:block-children($config, $node, $class, $rest)
 };
 
+declare %private function pmf:block-normalize-run($class as xs:string+, $run as item()*) as node()* {
+    let $preserve := pmf:preserve-whitespace($class)
+    for $item in $run
+    return
+        typeswitch($item)
+            case text() return
+                let $s := pmf:normalize-text(string($item), $preserve)
+                where $s != ''
+                return
+                    if ($preserve) then
+                        pmf:text-to-runs($s, ())
+                    else if (normalize-space($s) != '') then
+                        <w:r>{ pmf:make-t($s) }</w:r>
+                    else ()
+            default return $item
+};
+
 declare function pmf:inline($config as map(*), $node as node(), $class as xs:string+, $content) {
     let $run-props := pmf:run-props($config, $class)
     let $preserve-text := pmf:preserve-whitespace($class)
-    for $child in $config?apply-children($config, $node, $content)
-    return
-        typeswitch($child)
-            case element(w:r) return
-                <w:r>
-                    <w:rPr>{ $run-props, $child/w:rPr/* }</w:rPr>
-                    { $child/* except $child/w:rPr }
-                </w:r>
-            case text() return
-                let $text := pmf:normalize-text(string($child), $preserve-text)
-                where
-                    if ($preserve-text) then $text != ''
-                    else normalize-space($text) != ''
-                return
+    let $all :=
+        for $child in $config?apply-children($config, $node, $content)
+        return
+            typeswitch($child)
+                case element(w:r) return
                     <w:r>
-                        <w:rPr>{ $run-props }</w:rPr>
-                        { pmf:make-t($text) }
+                        <w:rPr>{ $run-props, $child/w:rPr/* }</w:rPr>
+                        { $child/* except $child/w:rPr }
                     </w:r>
-            default return $child
+                case text() return
+                    let $text := pmf:normalize-text(string($child), $preserve-text)
+                    where $text != ''
+                    return
+                        if ($preserve-text) then
+                            pmf:text-to-runs($text, $run-props)
+                        else if (normalize-space($text) != '') then
+                            <w:r>
+                                <w:rPr>{ $run-props }</w:rPr>
+                                { pmf:make-t($text) }
+                            </w:r>
+                        else
+                            <docx:ws/>
+                default return $child
+    return pmf:keep-interior-whitespace($all)
 };
 
 declare function pmf:text($config as map(*), $node as node(), $class as xs:string+, $content) {
-    let $str := pmf:normalize-text(string($content), pmf:preserve-whitespace($class))
+    let $preserve := pmf:preserve-whitespace($class)
+    let $str := pmf:normalize-text(string($content), $preserve)
     let $rPr := pmf:run-props($config, $class)
     where
-        if (pmf:preserve-whitespace($class)) then $str != ''
+        if ($preserve) then $str != ''
         else $str != '' and normalize-space($str) != ''
     return
-        if (exists($rPr)) then
+        if ($preserve) then
+            pmf:text-to-runs($str, $rPr)
+        else if (exists($rPr)) then
             <w:r>
                 <w:rPr>{ $rPr }</w:rPr>
                 { pmf:make-t($str) }
@@ -455,6 +484,10 @@ declare function pmf:skip($config as map(*), $node as node(), $class as xs:strin
     ()
 };
 
+declare function pmf:pass-through($config as map(*), $node as node(), $class as xs:string+, $content) {
+    pmf:apply-runs($config, $node, $class, $content)
+};
+
 declare function pmf:caption($config as map(*), $node as node(), $class as xs:string+, $content) {
     pmf:caption($config, $node, $class, $content, ())
 };
@@ -481,7 +514,8 @@ declare function pmf:caption($config as map(*), $node as node(), $class as xs:st
 
 declare function pmf:figure($config as map(*), $node as node(), $class as xs:string+, $content, $title) {
     let $items := $config?apply-children($config, $node, $content)
-    let $paras := pmf:block-children($config, $node, $class, $items)
+    let $fig-class := ("Figure", $class)
+    let $paras := pmf:block-children($config, $node, $fig-class, $items)
     let $has-caption := exists($title) and normalize-space(string-join($title, "")) != ""
     return (
         if ($has-caption) then
@@ -790,15 +824,25 @@ declare %private function pmf:clean-body($config as map(*), $nodes as node()*) a
                 else
                     <w:r>{ pmf:make-t("[Image: " || string($node/@url) || "]") }</w:r>
             case element() return
-                element { node-name($node) } {
-                    $node/@*,
+                if (namespace-uri($node) = "http://schemas.openxmlformats.org/wordprocessingml/2006/main") then
+                    element { node-name($node) } {
+                        $node/@*,
+                        pmf:clean-body($config, $node/node())
+                    }
+                else
                     pmf:clean-body($config, $node/node())
-                }
             default return $node
 };
 
 declare %private function pmf:flatten-paragraph($config as map(*), $p as element(w:p)) as element(w:p)* {
-    let $content := pmf:clean-body($config, $p/node()[not(self::w:p)])
+    let $raw := pmf:clean-body($config, $p/node()[not(self::w:p)])
+    let $content :=
+        for $item in $raw
+        return
+            if ($item instance of text() and normalize-space(string($item)) != "") then
+                <w:r>{ pmf:make-t(string($item)) }</w:r>
+            else
+                $item
     let $has-content := exists($content[not(self::text()[normalize-space(.) = ""])])
     return (
         if ($has-content) then
@@ -911,28 +955,89 @@ declare %private function pmf:strip-mc-ignorable($el as element()) as element() 
     }
 };
 
-declare %private function pmf:ensure-builtin-char-styles($styles-root as element()) as element() {
-    let $need-hyperlink := empty($styles-root/w:style[@w:styleId = "Hyperlink"])
+declare %private function pmf:ensure-builtin-styles($styles-root as element()) as element() {
+    let $need-hyperlink  := empty($styles-root/w:style[@w:styleId = "Hyperlink"])
+    let $need-figure     := empty($styles-root/w:style[@w:styleId = "Figure"])
+    let $need-caption    := empty($styles-root/w:style[@w:styleId = "Caption"])
+    let $need-fn-text    := empty($styles-root/w:style[@w:styleId = "FootnoteText"])
+    let $need-fn-ref     := empty($styles-root/w:style[@w:styleId = "FootnoteReference"])
     return
-        if (not($need-hyperlink)) then
+        if (not($need-hyperlink or $need-figure or $need-caption or $need-fn-text or $need-fn-ref)) then
             $styles-root
         else
-            element { node-name($styles-root) } {
-                $styles-root/@*,
-                $styles-root/node(),
-                if ($need-hyperlink) then
-                    <w:style w:type="character" w:styleId="Hyperlink">
-                        <w:name w:val="Hyperlink"/>
-                        <w:basedOn w:val="DefaultParagraphFont"/>
-                        <w:uiPriority w:val="99"/>
-                        <w:unhideWhenUsed/>
-                        <w:rPr>
-                            <w:color w:val="0563C1" w:themeColor="hyperlink"/>
-                            <w:u w:val="single"/>
-                        </w:rPr>
-                    </w:style>
-                else ()
-            }
+            let $default-para := string(($styles-root/w:style[@w:type="paragraph"][@w:default="1"]/@w:styleId, "Normal")[1])
+            let $default-char := string(($styles-root/w:style[@w:type="character"][@w:default="1"]/@w:styleId, "DefaultParagraphFont")[1])
+            return
+                element { node-name($styles-root) } {
+                    $styles-root/@*,
+                    $styles-root/node(),
+                    if ($need-figure) then
+                        <w:style w:type="paragraph" w:styleId="Figure">
+                            <w:name w:val="Figure"/>
+                            <w:basedOn w:val="{$default-para}"/>
+                            <w:next w:val="Caption"/>
+                            <w:uiPriority w:val="99"/>
+                            <w:pPr>
+                                <w:jc w:val="center"/>
+                                <w:spacing w:before="120" w:after="0"/>
+                            </w:pPr>
+                        </w:style>
+                    else (),
+                    if ($need-caption) then
+                        <w:style w:type="paragraph" w:styleId="Caption">
+                            <w:name w:val="caption"/>
+                            <w:basedOn w:val="{$default-para}"/>
+                            <w:next w:val="{$default-para}"/>
+                            <w:uiPriority w:val="35"/>
+                            <w:qFormat/>
+                            <w:rPr>
+                                <w:i/>
+                                <w:iCs/>
+                            </w:rPr>
+                        </w:style>
+                    else (),
+                    if ($need-fn-text) then
+                        <w:style w:type="paragraph" w:styleId="FootnoteText">
+                            <w:name w:val="footnote text"/>
+                            <w:basedOn w:val="{$default-para}"/>
+                            <w:link w:val="FootnoteTextChar"/>
+                            <w:uiPriority w:val="99"/>
+                            <w:semiHidden/>
+                            <w:unhideWhenUsed/>
+                            <w:pPr>
+                                <w:spacing w:after="0" w:line="240" w:lineRule="auto"/>
+                            </w:pPr>
+                            <w:rPr>
+                                <w:sz w:val="20"/>
+                                <w:szCs w:val="20"/>
+                            </w:rPr>
+                        </w:style>
+                    else (),
+                    if ($need-fn-ref) then
+                        <w:style w:type="character" w:styleId="FootnoteReference">
+                            <w:name w:val="footnote reference"/>
+                            <w:basedOn w:val="{$default-char}"/>
+                            <w:uiPriority w:val="99"/>
+                            <w:semiHidden/>
+                            <w:unhideWhenUsed/>
+                            <w:rPr>
+                                <w:vertAlign w:val="superscript"/>
+                            </w:rPr>
+                        </w:style>
+                    else (),
+                    if ($need-hyperlink) then
+                        <w:style w:type="character" w:styleId="Hyperlink">
+                            <w:name w:val="Hyperlink"/>
+                            <w:basedOn w:val="{$default-char}"/>
+                            <w:uiPriority w:val="99"/>
+                            <w:unhideWhenUsed/>
+                            <w:rPr>
+                                <w:color w:val="0563C1" w:themeColor="hyperlink"/>
+                                <w:u w:val="single"/>
+                            </w:rPr>
+                        </w:style>
+                    else ()
+                }
 };
 
 (: One OPC Relationship row with stable namespace (avoids eXist xmlns="" on children). :)
@@ -1032,14 +1137,15 @@ declare %private function pmf:assemble-package(
     $config         as map(*),
     $body-nodes     as node()*,
     $footnotes      as element(docx:footnote)*,
-    $links          as element(docx:hyperlink)*,
+    $body-links     as element(docx:hyperlink)*,
+    $fn-links       as element(docx:hyperlink)*,
     $has-footnotes  as xs:boolean,
     $image-items    as map(*)*,
     $list-nums      as element(docx:list-instance)*
 ) as element(pkg:package) {
     let $sectPr        := pmf:sect-pr-for-output(pmf:load-template-xml($config, "word/document.xml")//w:sectPr)
     let $doc-xml       := pmf:make-document-xml($body-nodes, $sectPr)
-    let $doc-rels      := pmf:make-document-rels($links, $has-footnotes, $image-items)
+    let $doc-rels      := pmf:make-document-rels($body-links, $has-footnotes, $image-items)
     let $content-types := pmf:make-content-types($has-footnotes, $image-items)
     return
         <pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
@@ -1075,14 +1181,22 @@ declare %private function pmf:assemble-package(
                     <pkg:part pkg:name="/word/_rels/footnotes.xml.rels"
                         pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
                         <pkg:xmlData>
-                            { element { QName($pmf:NS_PKG_RELS, "Relationships") } { } }
+                            {
+                                element { QName($pmf:NS_PKG_RELS, "Relationships") } {
+                                    for $link in $fn-links
+                                    let $href := normalize-space(string($link/@href))
+                                    where $href != ""
+                                    return
+                                        pmf:opc-rel(string($link/@rId), $pmf:HL_REL_TYPE, $href, "External")
+                                }
+                            }
                         </pkg:xmlData>
                     </pkg:part>
                 ) else ()
             }
             <pkg:part pkg:name="/word/styles.xml"
                 pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml">
-                <pkg:xmlData>{ pmf:ensure-builtin-char-styles(pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/styles.xml")/element())) }</pkg:xmlData>
+                <pkg:xmlData>{ pmf:ensure-builtin-styles(pmf:strip-mc-ignorable(pmf:load-template-xml($config, "word/styles.xml")/element())) }</pkg:xmlData>
             </pkg:part>
             <pkg:part pkg:name="/word/stylesWithEffects.xml"
                 pkg:contentType="application/vnd.ms-word.stylesWithEffects+xml">
@@ -1520,16 +1634,32 @@ declare %private function pmf:run-props($config as map(*), $class as xs:string+)
 
 declare %private function pmf:apply-runs($config as map(*), $node as node(), $class as xs:string*, $content) as node()* {
     let $preserve-text := pmf:preserve-whitespace($class)
-    for $item in $config?apply-children($config, $node, $content)
-    return
-        typeswitch($item)
-            case text() return
-                let $s := pmf:normalize-text(string($item), $preserve-text)
-                where
-                    if ($preserve-text) then $s != ''
-                    else normalize-space($s) != ''
-                return <w:r>{ pmf:make-t($s) }</w:r>
-            default return $item
+    let $all :=
+        for $item in $config?apply-children($config, $node, $content)
+        return
+            typeswitch($item)
+                case text() return
+                    let $s := pmf:normalize-text(string($item), $preserve-text)
+                    where $s != ''
+                    return
+                        if ($preserve-text) then
+                            pmf:text-to-runs($s, ())
+                        else if (normalize-space($s) != '') then
+                            <w:r>{ pmf:make-t($s) }</w:r>
+                        else
+                            <docx:ws/>
+                case xs:anyAtomicType return
+                    let $s := pmf:normalize-text(string($item), $preserve-text)
+                    where $s != ''
+                    return
+                        if ($preserve-text) then
+                            pmf:text-to-runs($s, ())
+                        else if (normalize-space($s) != '') then
+                            <w:r>{ pmf:make-t($s) }</w:r>
+                        else
+                            <docx:ws/>
+                default return $item
+    return pmf:keep-interior-whitespace($all)
 };
 
 declare %private function pmf:preserve-whitespace($class as xs:string*) as xs:boolean {
@@ -1539,6 +1669,34 @@ declare %private function pmf:preserve-whitespace($class as xs:string*) as xs:bo
     or exists(
         pmf:user-style-classes($class)[. = ("Code", "Preformatted", "CodeChar")]
     )
+};
+
+(: Kept for ODD compatibility; interior-whitespace preservation is now always on. :)
+declare %private function pmf:normalize-whitespace($class as xs:string*) as xs:boolean {
+    exists(pmf:user-style-classes($class)[. = "Normalize"])
+};
+
+(: Keep whitespace-only placeholder runs that fall between real content, drop leading/trailing.
+   This mirrors CSS white-space collapsing for inline elements: inter-element spaces become one space. :)
+declare %private function pmf:keep-interior-whitespace($items as node()*) as node()* {
+    let $non-ws :=
+        for $i in (1 to count($items))
+        where not($items[$i] instance of element(docx:ws))
+        return $i
+    return
+        if (empty($non-ws)) then ()
+        else
+            let $first := head($non-ws)
+            let $last  := $non-ws[last()]
+            for $i in (1 to count($items))
+            let $item := $items[$i]
+            return
+                if ($item instance of element(docx:ws)) then
+                    if ($i > $first and $i < $last) then
+                        <w:r>{ pmf:make-t(" ") }</w:r>
+                    else ()
+                else
+                    $item
 };
 
 declare %private function pmf:normalize-text($text as xs:string?, $preserve as xs:boolean) as xs:string {
@@ -1556,6 +1714,16 @@ declare %private function pmf:make-t($text as xs:string) as element(w:t) {
         <w:t xml:space="preserve">{ $text }</w:t>
     else
         <w:t>{ $text }</w:t>
+};
+
+(: Split text on newlines, emitting w:br between lines — for preserve-whitespace (Code) contexts. :)
+declare %private function pmf:text-to-runs($text as xs:string, $rPr-content as node()*) as node()* {
+    let $rPr := if (exists($rPr-content)) then <w:rPr>{ $rPr-content }</w:rPr> else ()
+    for $line at $i in tokenize($text, "\r?\n")
+    return (
+        if ($i > 1) then <w:r>{ $rPr }<w:br/></w:r> else (),
+        if ($line != '') then <w:r>{ $rPr }{ pmf:make-t($line) }</w:r> else ()
+    )
 };
 
 (: ============================================================
