@@ -10,6 +10,14 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="6.1.0">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Feature: add an output mode for exporting to DOCX</li>
+                <li>Fix: compatibility with next eXist-db version 7</li>
+                <li>Fix: ODD inheritance: if the ODD was in a different namespace than TEI, the namespace got lost in the child ODD</li>
+                <li>Fix: style merging errors in markdown output</li>
+            </ul>
+        </change>
         <change version="6.0.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Prevent older TEI Publisher versions to break after updating: omit markdown output mode by default; it now needs to be explicitly enabled</li>
@@ -17,7 +25,7 @@
         </change>
         <change version="6.0.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
-                <li>Breaking change: from every model two classes are assigned automatically for TEI elements - 
+                <li>Breaking change: from every model two classes are assigned automatically for TEI elements -
                     one named after the element itself, e.g. `tei-dateline` and another, suffixed with the sequential number of the model, e.g. `tei-dateline1`. Previously the first model had the class without any number assigned.</li>
                 <li>Add support for markdown output mode</li>
                 <li>Requires eXist 6.2.0 or higher</li>
@@ -30,7 +38,7 @@
         </change>
         <change version="4.0.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
-                <li>Fix: importing full config.xqm into generated code causes failure on 
+                <li>Fix: importing full config.xqm into generated code causes failure on
                     windows due to large number of dependencies. We dropped this default. Instead,
                     you can now define the modules to be made available within ODDs in configuration.xml.</li>
             </ul>
@@ -138,7 +146,7 @@
         </change>
         <change version="2.8.4">
             <ul xmlns="http://www.w3.org/1999/xhtml">
-                <li>Generated footnote popups will now use pb-popover (with TEI Publisher 6), 
+                <li>Generated footnote popups will now use pb-popover (with TEI Publisher 6),
                 which provides better positioning</li>
             </ul>
         </change>
