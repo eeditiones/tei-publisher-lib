@@ -61,7 +61,7 @@ declare %private function pmc:generate-default($map as map(*), $mode as xs:strin
 };
 
 declare function pmc:generate-pm-config($odds as xs:string*, $default-odd as xs:string, $odd-root as xs:string) {
-    pmc:generate-pm-config($odds, $default-odd, $odd-root, ("web", "print", "latex", "epub", "fo"))
+    pmc:generate-pm-config($odds, $default-odd, $odd-root, ("web", "print", "latex", "epub", "fo", "docx"))
 };
 
 (:~

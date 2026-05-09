@@ -4,3 +4,4 @@ build/
 !.gitignore
 !.existdb.json
 !.github/
+!**/.rels
