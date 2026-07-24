@@ -307,7 +307,7 @@ if ($trackIds) then
                         }}
                 else
                     element {{ node-name($node) }} {{
-                        attribute data-tei {{ util:node-id($context) }},
+                        if ($node/@data-tei) then () else attribute data-tei {{ util:node-id($context) }},
                         $node/@*,
                         model:process-annotation($node, $context),
                         $node/node()

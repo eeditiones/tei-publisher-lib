@@ -10,6 +10,15 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="6.1.1">
+            <ul xmlns="http://www.w3.org/1999/xhtml">
+                <li>Fix: model:map() unconditionally wrote a @data-tei tracking attribute onto every
+                    tracked element, even when one was already present on the node being wrapped
+                    (e.g. output already passed through model:map once, such as the web annotation
+                    editor's node-id-tracked mode) - this threw err:XQDY0025 ("element has more than
+                    one attribute 'data-tei'"). Now only added if not already present.</li>
+            </ul>
+        </change>
         <change version="6.1.0">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Feature: add an output mode for exporting to DOCX</li>
