@@ -313,7 +313,7 @@ if ($trackIds) then
                          : (i.e. content already passed through model:map() once with
                          : trackIds on). Concretely, in mpilhlt/tei-publisher-reconcile: any
                          : request that loads a document via the `annotate` profile's
-                         : track-ids mode - e.g. GET /api/document/{id}?user.track-ids=yes,
+                         : track-ids mode - e.g. GET /api/document/{{id}}?user.track-ids=yes,
                          : which annotate-tei.html's &lt;pb-param name="track-ids" value="yes"&gt;
                          : triggers on every page load - 500'd with XQDY0025 on an unpatched
                          : tei-publisher-lib. Reproduced by any Cypress spec that
