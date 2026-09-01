@@ -687,7 +687,7 @@ declare %private function pm:behaviour-function-meta($behave as element(pb:behav
                 <argument var="content" cardinality="one or more"/>
         }
         {
-            for $param in $behave/pb:param[not(@value)]
+            for $param in $behave/pb:param
             return
                 <argument var="{$param/@name}" cardinality="zero or more"/>
         }
@@ -752,12 +752,12 @@ declare %private function pm:get-model-elements($context as element(), $output a
 declare %private function pm:declare-behaviour-functions($odd as element(), $output as xs:string*) {
     for $behave in root($odd)//pb:behaviour[not(@output)] | root($odd)//pb:behaviour[@output = $output]
     let $extraParams := string-join(
-        for $param in $behave/pb:param[not(@value)] return ``[, $`{$param/@name/string()}`]``
+        for $param in $behave/pb:param return ``[, $`{$param/@name/string()}`]``
     )
     let $letStmts :=
         for $param in $behave/pb:param[@value]
         return
-            ``[        let $`{$param/@name}` := `{$param/@value}`
+            ``[        let $`{$param/@name}` := if (count($`{$param/@name}`)) then $`{$param/@name/string()}` else `{$param/@value}`
 ]``
     let $comment :=
         if ($behave/tei:desc) then
