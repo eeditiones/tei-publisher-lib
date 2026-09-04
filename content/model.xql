@@ -307,19 +307,7 @@ if ($trackIds) then
                         }}
                 else
                     element {{ node-name($node) }} {{
-                        (: Before this guard, this attribute constructor ran unconditionally
-                         : and threw err:XQDY0025 ("element has more than one attribute
-                         : 'data-tei'") whenever $node already carried a data-tei attribute
-                         : (i.e. content already passed through model:map() once with
-                         : trackIds on). Concretely, in mpilhlt/tei-publisher-reconcile: any
-                         : request that loads a document via the `annotate` profile's
-                         : track-ids mode - e.g. GET /api/document/{{id}}?user.track-ids=yes,
-                         : which annotate-tei.html's &lt;pb-param name="track-ids" value="yes"&gt;
-                         : triggers on every page load - 500'd with XQDY0025 on an unpatched
-                         : tei-publisher-lib. Reproduced by any Cypress spec that
-                         : cy.visit()s an annotate page, e.g.
-                         : reconcile/test/cypress/e2e/gui/annotate-reconciliation.cy.js's
-                         : `/sermons/27004.xml?template=annotate-tei.html&amp;odd=annotations&amp;view=single`. :)
+                        (: Add a data-tei attribute if not already present :)
                         if ($node/@data-tei) then () else attribute data-tei {{ util:node-id($context) }},
                         $node/@*,
                         model:process-annotation($node, $context),
