@@ -124,3 +124,26 @@ function tmd:pass-through() as xs:string {
     pmf:finish($tmd:CFG, <root>{pmf:pass-through($tmd:CFG, <n/>, ("code"), "`abc`")}</root>)
     => string-join("")
 };
+
+declare
+    %test:assertEquals("<dl><dt>path</dt><dd>&#10;&#10;the relative path to the data root. &#10;</dd></dl>")
+function tmd:pass-through-definition-list-keeps-html() as xs:string {
+    let $content :=
+        <root>
+            <dl>
+                <dt>path</dt>
+                <dd>
+                        the relative path
+                        to the data root.
+                </dd>
+            </dl>
+        </root>
+    return
+        pmf:finish($tmd:CFG, $content)
+};
+
+declare
+    %test:assertEquals('<a id="sec-1"></a>')
+function tmd:pass-through-anchor-keeps-attributes() as xs:string {
+    pmf:finish($tmd:CFG, <root><a id="sec-1"/></root>)
+};
