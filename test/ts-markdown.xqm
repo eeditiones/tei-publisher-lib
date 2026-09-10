@@ -124,3 +124,55 @@ function tmd:pass-through() as xs:string {
     pmf:finish($tmd:CFG, <root>{pmf:pass-through($tmd:CFG, <n/>, ("code"), "`abc`")}</root>)
     => string-join("")
 };
+
+declare
+    %test:assertEquals("<dl><dt>path</dt><dd>&#10;&#10;the relative path to the data root. &#10;</dd></dl>")
+function tmd:pass-through-definition-list-keeps-html() as xs:string {
+    let $content :=
+        <root>
+            <dl>
+                <dt>path</dt>
+                <dd>
+                        the relative path
+                        to the data root.
+                </dd>
+            </dl>
+        </root>
+    return
+        pmf:finish($tmd:CFG, $content)
+};
+
+declare
+    %test:assertEquals('<a id="sec-1"></a>')
+function tmd:pass-through-anchor-keeps-attributes() as xs:string {
+    pmf:finish($tmd:CFG, <root><a id="sec-1"/></root>)
+};
+
+declare
+    %test:assertEquals("<dl><dt>open source</dt><dd>&#10;&#10;All components are released.&#10;</dd></dl>&#10;&#10;## Jinks: edition in few clicks&#10;&#10;")
+function tmd:definition-list-before-heading() as xs:string {
+    let $content :=
+        <root>
+            <dl>
+                <dt>open source</dt>
+                <dd>All components are released.</dd>
+            </dl>
+            {pmf:heading($tmd:CFG, <n/>, ("heading"), "Jinks: edition in few clicks", 2)}
+        </root>
+    return
+        pmf:finish($tmd:CFG, $content)
+};
+
+declare
+    %test:assertEquals("<section><p>Intro block</p></section>&#10;&#10;## Next heading&#10;&#10;")
+function tmd:generic-block-before-heading() as xs:string {
+    let $content :=
+        <root>
+            <section>
+                <p>Intro block</p>
+            </section>
+            {pmf:heading($tmd:CFG, <n/>, ("heading"), "Next heading", 2)}
+        </root>
+    return
+        pmf:finish($tmd:CFG, $content)
+};

@@ -44,6 +44,16 @@ declare function pmf:cells($config as map(*), $node as node(), $class as xs:stri
     </tr>
 };
 
+(:~
+ : Wrap footnote content in a plain class so popover styling can target it
+ : reliably. Several reading systems (Apple Books among them) drop or ignore
+ : `aside[epub|type=…]` rules inside the floating panel they render a footnote
+ : aside into, but do honour a plain class selector on its content.
+ :)
+declare function pmf:footnote-body($content) {
+    <div class="fn-body">{ $content }</div>
+};
+
 declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
     let $id := translate(generate-id($node), ".", "_")
     return (
@@ -51,7 +61,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
         { counters:increment($html:NOTE_COUNTER_ID) }
         </a>,
         <aside epub:type="footnote" id="fn{$id}" class="note {$class}">
-        { $config?apply($config, $content/node()) }
+        { pmf:footnote-body($config?apply($config, $content/node())) }
         </aside>
     )
 };
@@ -64,7 +74,7 @@ declare function pmf:alternate($config as map(*), $node as node(), $class as xs:
         { html:apply-children($config, $node, $default) }
         </a>,
         <aside epub:type="footnote" id="fn{$id}" class="altcontent {$class}">
-        { html:apply-children($config, $node, $alternate) }
+        { pmf:footnote-body(html:apply-children($config, $node, $alternate)) }
         </aside>
     )
 };

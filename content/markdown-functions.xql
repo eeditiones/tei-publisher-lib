@@ -71,7 +71,7 @@ declare function pmf:finish($config as map(*), $input as node()*) {
         return
             string-join(("&#10;&#10;", $note/@n/string(), ": ",  $content), '')
     )
-    return
+    let $output :=
         replace(
             replace(
                 replace(string-join($text, ""), "\n{3,}", "&#10;&#10;"),
@@ -79,6 +79,9 @@ declare function pmf:finish($config as map(*), $input as node()*) {
             ),
             "\*\*\s*(\S.*?)\s*\*\*", "**$1**", "m"
         )
+    return
+        (: CommonMark requires a blank line between an HTML block and an ATX heading. :)
+        replace($output, "(</[^>]+>)\n(#{1,6}\s)", "$1&#10;&#10;$2", "m")
 };
 
 (:~
@@ -160,6 +163,9 @@ declare %private function pmf:consume-text($nodes as node()*) {
 
 (:~
  : Remove leading spaces from the nodes. The nodes must have been normalized first.
+ : Recurses into elements so whitespace inside HTML produced by pass-through
+ : templates (e.g. dl/dt/dd) is cleaned as well — otherwise indented source XML
+ : survives into the markdown and CommonMark treats it as a fenced/indented code block.
  :
  : @param nodes The nodes to remove leading spaces from.
  : @return The nodes with leading spaces removed.
@@ -178,10 +184,54 @@ declare %private function pmf:leading-spaces($nodes as node()*) {
                 }
             case element(root) return
                 pmf:leading-spaces($node/node())
-            case element() return
+            case element(indent) | element(lb) | element(lb2) return
                 $node
+            case element() return
+                element { node-name($node) } {
+                    $node/@*,
+                    pmf:leading-spaces($node/node())
+                }
             default return
                 pmf:leading-spaces($node/node())
+};
+
+(:~
+ : Serialize an element as HTML so pass-through templates (definition lists,
+ : anchors, embeds, …) survive into the markdown string for the renderer.
+ : For <dd>/<li>, pad with blank lines so CommonMark/marked still parses
+ : markdown inside the HTML block.
+ :)
+declare %private function pmf:serialize-html($node as element()) as xs:string {
+    let $name := local-name($node)
+    let $attrs :=
+        string-join(
+            for $attr in $node/@*
+            (: Source is XML-stored: &amp; in the file becomes & for the XQuery parser. :)
+            let $value :=
+                replace(
+                    replace(
+                        replace(string($attr), "&amp;", "&amp;amp;"),
+                        '"',
+                        "&amp;quot;"
+                    ),
+                    "&lt;",
+                    "&amp;lt;"
+                )
+            return
+                " " || name($attr) || '="' || $value || '"'
+        )
+    let $inner := string-join(pmf:readd-spaces($node/node()), "")
+    let $body :=
+        if ($name = ("dd", "li") and normalize-space($inner)) then
+            "&#10;&#10;" || $inner || "&#10;"
+        else
+            $inner
+    return
+        string-join((
+            "<" || $name || $attrs || ">",
+            $body,
+            "</" || $name || ">"
+        ))
 };
 
 declare %private function pmf:readd-spaces($nodes as node()*) {
@@ -194,8 +244,12 @@ declare %private function pmf:readd-spaces($nodes as node()*) {
                 "&#10;"
             case element(lb2) return
                 "&#10;&#10;"
+            case element(root) return
+                pmf:readd-spaces($node/node())
             case text() return
                 $node
+            case element() return
+                pmf:serialize-html($node)
             default return
                 pmf:readd-spaces($node/node())
 };
