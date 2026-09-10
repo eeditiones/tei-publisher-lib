@@ -71,7 +71,7 @@ declare function pmf:finish($config as map(*), $input as node()*) {
         return
             string-join(("&#10;&#10;", $note/@n/string(), ": ",  $content), '')
     )
-    return
+    let $output :=
         replace(
             replace(
                 replace(string-join($text, ""), "\n{3,}", "&#10;&#10;"),
@@ -79,6 +79,9 @@ declare function pmf:finish($config as map(*), $input as node()*) {
             ),
             "\*\*\s*(\S.*?)\s*\*\*", "**$1**", "m"
         )
+    return
+        (: CommonMark requires a blank line between an HTML block and an ATX heading. :)
+        replace($output, "(</[^>]+>)\n(#{1,6}\s)", "$1&#10;&#10;$2", "m")
 };
 
 (:~
