@@ -132,3 +132,27 @@ function tdo:inline-applies-bold-from-styles() as xs:boolean {
     exists($out/self::w:r/w:rPr/w:b)
     and $out/self::w:r/w:t = "X"
 };
+
+(: ODD pb:template + listItem often yields an xs:string (not a text node) when
+   template mode skips apply-children. block-normalize-run must turn that into w:r. :)
+declare
+  %test:assertTrue
+function tdo:listItem-accepts-atomic-string-content() as xs:boolean {
+  let $cfg := map {
+    "apply-children": function($c as map(*), $n as node(), $content) { $content },
+    "list-num-id": "1",
+    "list-level": 1
+  }
+  let $out := pmf:listItem(
+    $cfg,
+    <tei:item xmlns:tei="http://www.tei-c.org/ns/1.0"/>,
+    ("tei-item"),
+    "Author: Title. Source, 2025",
+    ()
+  )
+  return
+    $out instance of element(w:p)
+    and exists($out/w:pPr/w:numPr)
+    and normalize-space(string-join($out//w:t/string(), "")) =
+      "Author: Title. Source, 2025"
+};

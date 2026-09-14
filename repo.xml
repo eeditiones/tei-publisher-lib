@@ -10,6 +10,11 @@
     <target />
     <note>Generated apps may fail after updating. Make sure to recompile your ODDs.</note>
     <changelog>
+        <change version="6.1.2">
+        <ul xmlns="http://www.w3.org/1999/xhtml">
+            <li>Fix: docx output mode errors on string values returned for list items.</li>
+        </ul>
+        </change>
         <change version="6.1.1">
             <ul xmlns="http://www.w3.org/1999/xhtml">
                 <li>Fix: model:map() unconditionally wrote a @data-tei tracking attribute onto every

@@ -132,12 +132,14 @@ declare %private function pmf:load-styles($config as map(*), $odd as document-no
 };
 
 declare function pmf:prepare($config as map(*), $node as node()*) {
-    counters:create($pmf:FOOTNOTE_COUNTER),
-    counters:create($pmf:LINK_COUNTER),
-    counters:create($pmf:GRAPHIC_COUNTER),
-    counters:create($pmf:DOC_PR_COUNTER),
-    counters:create($pmf:LIST_NUM_COUNTER),
-    ()
+    let $_ := (
+        counters:create($pmf:FOOTNOTE_COUNTER),
+        counters:create($pmf:LINK_COUNTER),
+        counters:create($pmf:GRAPHIC_COUNTER),
+        counters:create($pmf:DOC_PR_COUNTER),
+        counters:create($pmf:LIST_NUM_COUNTER)
+    )
+    return ()
 };
 
 declare function pmf:finish($config as map(*), $input as node()*) {
@@ -277,7 +279,7 @@ declare %private function pmf:block-normalize-run($class as xs:string+, $run as 
     for $item in $run
     return
         typeswitch($item)
-            case text() return
+            case text() | xs:anyAtomicType return
                 let $s := pmf:normalize-text(string($item), $preserve)
                 where $s != ''
                 return
