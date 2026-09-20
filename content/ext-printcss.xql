@@ -11,9 +11,27 @@ import module namespace html="http://www.tei-c.org/tei-simple/xquery/functions";
 
 declare function pmf:note($config as map(*), $node as node(), $class as xs:string+, $content, $place, $label) {
     let $fnClass := if ($place = 'margin') then 'margin-note' else 'footnote'
+    (: Preserve TEI @n (a/b/c vs 1/2/3) for CSS ::footnote-call / ::footnote-marker.
+       Without data-n, print.css can only auto-number everything as decimal. :)
+    let $n :=
+        if ($label) then
+            normalize-space(
+                if ($label instance of attribute()) then
+                    $label/string()
+                else
+                    string-join($label ! string(.), '')
+            )
+        else
+            ()
     return
         <span class="{$class} {$fnClass}">
-        { html:apply-children($config, $node, $content) }
+        {
+            if ($n) then
+                attribute data-n { $n }
+            else
+                (),
+            html:apply-children($config, $node, $content)
+        }
         </span>
 };
 

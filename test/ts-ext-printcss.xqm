@@ -18,7 +18,21 @@ declare
   %test:assertTrue
 function tpc:note-footnote-place() as xs:boolean {
   let $res := pmf:note($tpc:CFG, <n/>, ("c"), 'X', 'footnote', ())
-  return name($res)='span' and contains($res/@class, 'footnote')
+  return name($res)='span' and contains($res/@class, 'footnote') and empty($res/@data-n)
+};
+
+declare
+  %test:assertTrue
+function tpc:note-preserves-label() as xs:boolean {
+  let $res := pmf:note($tpc:CFG, <n/>, ("c"), 'X', 'footnote', 'a')
+  return name($res)='span' and contains($res/@class, 'footnote') and $res/@data-n = 'a'
+};
+
+declare
+  %test:assertTrue
+function tpc:note-preserves-attribute-label() as xs:boolean {
+  let $res := pmf:note($tpc:CFG, <n/>, ("c"), 'X', 'footnote', attribute n { '1' })
+  return $res/@data-n = '1'
 };
 
 declare
