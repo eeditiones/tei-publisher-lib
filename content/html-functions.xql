@@ -245,11 +245,11 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
             if ($label) then (
                 <span class="{$class} margin-note-ref">{(pmf:add-language-attributes($node), $label)}</span>,
                 <span class="{$class} margin-note">
-                    <span class="n">{pmf:add-language-attributes($node), $label/string()} </span>{ pmf:apply-children($config, $node, $content) }
+                    <span class="n">{pmf:add-language-attributes($node), $label/string()} </span>{ pmf:apply-children($config, true(), $node, $content) }
                 </span>
             ) else
                 <span class="{$class} margin-note" id="margin_ref_{$id}">
-                { pmf:add-language-attributes($node), pmf:apply-children($config, $node, $content) }
+                { pmf:add-language-attributes($node), pmf:apply-children($config, true(), $node, $content) }
                 </span>
         default return
             let $nr :=
@@ -257,7 +257,7 @@ declare function pmf:note($config as map(*), $node as node(), $class as xs:strin
                     $label
                 else
                     counters:increment($pmf:NOTE_COUNTER_ID)
-            let $content := pmf:apply-children($config, $node, $content)
+            let $content := pmf:apply-children($config, true(), $node, $content)
             let $wcVersion :=
                 if ($config?parameters?webcomponents) then
                     try {
